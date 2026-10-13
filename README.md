@@ -114,7 +114,7 @@ gradle assembleDebug
 ## 📥 Como Instalar e Ativar no Android (Android 8.0+)
 
 1. **Instalação:**
-   - Transfira o arquivo `app-release.apk` para o seu dispositivo via cabo USB, cartão SD ou download local.
+   - Transfira o arquivo `APK/teclado-pt-br-v1.0.apk` para o seu dispositivo via cabo USB, cartão SD ou download local.
    - Toque no arquivo `.apk` e confirme a instalação (habilite "Instalar fontes desconhecidas" caso solicitado).
 2. **Ativação:**
    - Abra o aplicativo **Teclado PT-BR** pelo ícone no lançador.
