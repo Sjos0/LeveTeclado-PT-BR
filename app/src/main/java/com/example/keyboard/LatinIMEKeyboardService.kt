@@ -33,12 +33,20 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     override fun onCreateInputView(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(android.graphics.Color.parseColor("#0F172A"))
+            setBackgroundColor(android.graphics.Color.parseColor("#172227"))
         }
 
         candidateView = CandidateView(this).apply {
             onSuggestionClickListener = { chosen ->
                 commitSuggestion(chosen)
+            }
+            onSettingsClickListener = {
+                try {
+                    val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {}
             }
         }
 
@@ -73,15 +81,13 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
 
     private fun updateEnterActionLabel(info: EditorInfo) {
         val action = info.imeOptions and (EditorInfo.IME_MASK_ACTION or EditorInfo.IME_FLAG_NO_ENTER_ACTION.inv())
-        val isMultiline = (info.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0
 
-        keyboardView.actionLabel = when (action) {
-            EditorInfo.IME_ACTION_GO -> "Ir"
-            EditorInfo.IME_ACTION_SEARCH -> "Buscar"
-            EditorInfo.IME_ACTION_SEND -> "Enviar"
-            EditorInfo.IME_ACTION_NEXT -> "Próximo"
-            EditorInfo.IME_ACTION_DONE -> "Concluir"
-            else -> if (isMultiline) "↵" else "OK"
+        keyboardView.actionType = when (action) {
+            EditorInfo.IME_ACTION_SEARCH -> KeyboardView.ACTION_TYPE_SEARCH
+            EditorInfo.IME_ACTION_SEND -> KeyboardView.ACTION_TYPE_SEND
+            EditorInfo.IME_ACTION_GO -> KeyboardView.ACTION_TYPE_GO
+            EditorInfo.IME_ACTION_DONE -> KeyboardView.ACTION_TYPE_DONE
+            else -> KeyboardView.ACTION_TYPE_ENTER
         }
     }
 

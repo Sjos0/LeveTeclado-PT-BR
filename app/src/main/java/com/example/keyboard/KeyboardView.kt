@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
@@ -35,6 +36,7 @@ class KeyboardView @JvmOverloads constructor(
         const val CODE_ENTER = -3
         const val CODE_MODE_CHANGE = -4
         const val CODE_MORE_SYMBOLS = -5
+        const val CODE_EMOJI = -6
         const val CODE_SPACE = 32
 
         const val SHIFT_OFF = 0
@@ -44,6 +46,12 @@ class KeyboardView @JvmOverloads constructor(
         const val MODE_TEXT = 0
         const val MODE_SYMBOLS = 1
         const val MODE_MORE_SYMBOLS = 2
+
+        const val ACTION_TYPE_SEARCH = 1
+        const val ACTION_TYPE_SEND = 2
+        const val ACTION_TYPE_GO = 3
+        const val ACTION_TYPE_DONE = 4
+        const val ACTION_TYPE_ENTER = 5
     }
 
     var listener: OnKeyboardActionListener? = null
@@ -62,10 +70,9 @@ class KeyboardView @JvmOverloads constructor(
             invalidate()
         }
 
-    var actionLabel: String = "↵"
+    var actionType: Int = ACTION_TYPE_SEARCH
         set(value) {
             field = value
-            findKeyByCode(CODE_ENTER)?.label = value
             invalidate()
         }
 
@@ -73,66 +80,75 @@ class KeyboardView @JvmOverloads constructor(
 
     private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-    // Paints pré-alocadas
+    // Paleta exata do Gboard Dark (Teal-tinted Charcoal)
+    private val backgroundPaint = Paint().apply {
+        color = Color.parseColor("#172227") // Fundo escuro azul-petróleo do Gboard
+    }
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#27272A") // Zinc-800
+        color = Color.parseColor("#2A373E") // Teclas normais com tom suave
         style = Paint.Style.FILL
     }
     private val specialKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#18181B") // Zinc-900
-        style = Paint.Style.FILL
-    }
-    private val symbolBtnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#3F3F46") // Zinc-700 destacado para ?123
+        color = Color.parseColor("#1F2A30") // Teclas funcionais (?123, Shift, Backspace)
         style = Paint.Style.FILL
     }
     private val pressedKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#52525B") // Zinc-600
+        color = Color.parseColor("#3B4B53") // Feedback visual de tecla pressionada
         style = Paint.Style.FILL
     }
+    private val actionKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#50B4CE") // Tom ciano/azul vibrante do botão de ação
+        style = Paint.Style.FILL
+    }
+    private val actionPressedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#3994AB")
+        style = Paint.Style.FILL
+    }
+    private val emojiBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#50B4CE") // Borda de destaque azul na tecla de emoji como no print
+        style = Paint.Style.STROKE
+        strokeWidth = 3.5f
+    }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#F4F4F5")
+        color = Color.parseColor("#F1F5F7")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
-    private val symbolTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#38BDF8") // Azul claro destacado para ?123
+    private val specialTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#E0EBF0")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
-    private val subTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#71717A") // Zinc-500
-        textAlign = Paint.Align.CENTER
-        textSize = 24f
+    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFFFFF")
+        style = Paint.Style.STROKE
+        strokeWidth = 3.5f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
-    private val actionKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2563EB") // Azul vibrante
+    private val iconFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FFFFFF")
         style = Paint.Style.FILL
     }
     private val popupBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#09090B")
+        color = Color.parseColor("#121A1E")
         style = Paint.Style.FILL
-        setShadowLayer(14f, 0f, 6f, Color.parseColor("#80000000"))
-    }
-    private val backgroundPaint = Paint().apply {
-        color = Color.parseColor("#121212") // Fundo escuro puro como no Gboard
+        setShadowLayer(16f, 0f, 8f, Color.parseColor("#90000000"))
     }
 
     data class Key(
         val code: Int,
         var label: String,
-        val subLabel: String? = null,
         val accents: List<String> = emptyList(),
         val widthWeight: Float = 1.0f,
         val isSpecial: Boolean = false,
         val isAction: Boolean = false,
-        val isSymbolToggle: Boolean = false,
+        val isEmoji: Boolean = false,
         var rect: RectF = RectF()
     )
 
-    private val keys = ArrayList<Key>(40)
+    private val keys = ArrayList<Key>(50)
 
-    // Rastreamento Multi-Touch para digitação rápida sem atrasos
     private data class PointerInfo(
         var key: Key,
         var startX: Float,
@@ -143,14 +159,13 @@ class KeyboardView @JvmOverloads constructor(
 
     private val activePointers = HashMap<Int, PointerInfo>()
 
-    // Popup de acentos e símbolos
+    // Popup de acentos e emojis
     private var popupActive = false
     private var popupKey: Key? = null
     private val popupRects = ArrayList<Pair<String, RectF>>()
     private var selectedPopupIndex = -1
     private var popupPointerId = -1
 
-    // Handler para aceleração do Backspace e Long Press
     private val handler = Handler(Looper.getMainLooper())
     private var backspaceDelay = 350L
     private val backspaceRunnable = object : Runnable {
@@ -194,20 +209,14 @@ class KeyboardView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val density = resources.displayMetrics.density
-        val height = (230 * density).toInt() // Altura ergonômica
+        // 5 linhas com proporção ergonômica idêntica ao print do Gboard
+        val height = (255 * density).toInt()
         setMeasuredDimension(width, height)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         buildKeyboardLayout()
-    }
-
-    private fun findKeyByCode(code: Int): Key? {
-        for (i in keys.indices) {
-            if (keys[i].code == code) return keys[i]
-        }
-        return null
     }
 
     private fun updateLabelsForShift() {
@@ -228,7 +237,8 @@ class KeyboardView @JvmOverloads constructor(
         val h = height.toFloat()
         if (w <= 0 || h <= 0) return
 
-        val padding = 5f
+        val paddingH = 4.5f
+        val paddingV = 6f
         val rows = when (keyboardMode) {
             MODE_TEXT -> getTextRows()
             MODE_SYMBOLS -> getSymbolRows()
@@ -237,13 +247,13 @@ class KeyboardView @JvmOverloads constructor(
         }
 
         val numRows = rows.size
-        val rowHeight = (h - (padding * (numRows + 1))) / numRows
-        var currentY = padding
+        val rowHeight = (h - (paddingV * (numRows + 1))) / numRows
+        var currentY = paddingV
 
         for (row in rows) {
             val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-            val availableWidth = w - (padding * (row.size + 1))
-            var currentX = padding
+            val availableWidth = w - (paddingH * (row.size + 1))
+            var currentX = paddingH
 
             for (keyDef in row) {
                 val keyWidth = (keyDef.widthWeight / totalWeight) * availableWidth
@@ -258,29 +268,36 @@ class KeyboardView @JvmOverloads constructor(
                 }
 
                 keys.add(keyDef)
-                currentX += keyWidth + padding
+                currentX += keyWidth + paddingH
             }
-            currentY += rowHeight + padding
+            currentY += rowHeight + paddingV
         }
     }
 
     private fun getTextRows(): List<List<Key>> {
-        // Linha 1: q w e r t y u i o p com números superiores disponíveis
+        // Linha 1: Linha de Números dedicada (idêntica ao print)
         val row1 = listOf(
-            Key('q'.code, "q", subLabel = "1", accents = listOf("1")),
-            Key('w'.code, "w", subLabel = "2", accents = listOf("2")),
-            Key('e'.code, "e", subLabel = "3", accents = listOf("é", "ê", "è", "3")),
-            Key('r'.code, "r", subLabel = "4", accents = listOf("4")),
-            Key('t'.code, "t", subLabel = "5", accents = listOf("5")),
-            Key('y'.code, "y", subLabel = "6", accents = listOf("6")),
-            Key('u'.code, "u", subLabel = "7", accents = listOf("ú", "ü", "ù", "7")),
-            Key('i'.code, "i", subLabel = "8", accents = listOf("í", "ì", "î", "8")),
-            Key('o'.code, "o", subLabel = "9", accents = listOf("ó", "ô", "õ", "ò", "9")),
-            Key('p'.code, "p", subLabel = "0", accents = listOf("0"))
+            Key('1'.code, "1"), Key('2'.code, "2"), Key('3'.code, "3"), Key('4'.code, "4"),
+            Key('5'.code, "5"), Key('6'.code, "6"), Key('7'.code, "7"), Key('8'.code, "8"),
+            Key('9'.code, "9"), Key('0'.code, "0")
         )
 
-        // Linha 2: a s d f g h j k l ç (ç sempre visível!)
+        // Linha 2: q w e r t y u i o p
         val row2 = listOf(
+            Key('q'.code, "q"),
+            Key('w'.code, "w"),
+            Key('e'.code, "e", accents = listOf("é", "ê", "è", "ë")),
+            Key('r'.code, "r"),
+            Key('t'.code, "t"),
+            Key('y'.code, "y"),
+            Key('u'.code, "u", accents = listOf("ú", "ü", "ù", "û")),
+            Key('i'.code, "i", accents = listOf("í", "ì", "î", "ï")),
+            Key('o'.code, "o", accents = listOf("ó", "ô", "õ", "ò", "ö")),
+            Key('p'.code, "p")
+        )
+
+        // Linha 3: a s d f g h j k l ç (10 teclas perfeitamente alinhadas com as linhas 1 e 2)
+        val row3 = listOf(
             Key('a'.code, "a", accents = listOf("á", "à", "â", "ã", "ä")),
             Key('s'.code, "s", accents = listOf("ß")),
             Key('d'.code, "d"),
@@ -293,9 +310,9 @@ class KeyboardView @JvmOverloads constructor(
             Key('ç'.code, "ç", accents = listOf("c"))
         )
 
-        // Linha 3: Shift, z x c v b n m, Backspace
-        val row3 = listOf(
-            Key(CODE_SHIFT, "⇧", widthWeight = 1.35f, isSpecial = true),
+        // Linha 4: Shift, z x c v b n m, Backspace
+        val row4 = listOf(
+            Key(CODE_SHIFT, "⇧", widthWeight = 1.45f, isSpecial = true),
             Key('z'.code, "z"),
             Key('x'.code, "x"),
             Key('c'.code, "c", accents = listOf("ç")),
@@ -303,19 +320,20 @@ class KeyboardView @JvmOverloads constructor(
             Key('b'.code, "b"),
             Key('n'.code, "n", accents = listOf("ñ")),
             Key('m'.code, "m"),
-            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.35f, isSpecial = true)
+            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
 
-        // Linha 4: Botão de Símbolos ?123 destacado, vírgula com símbolos, espaço, ponto com pontuação, Enter
-        val row4 = listOf(
-            Key(CODE_MODE_CHANGE, "?123", widthWeight = 1.4f, isSpecial = true, isSymbolToggle = true),
-            Key(','.code, ",", subLabel = "<", accents = listOf(";", ":", "(", ")"), widthWeight = 1.0f),
-            Key(CODE_SPACE, "espaço", widthWeight = 4.2f),
-            Key('.'.code, ".", subLabel = ">", accents = listOf("!", "?", "@", "-", "_", "/"), widthWeight = 1.0f),
-            Key(CODE_ENTER, actionLabel, widthWeight = 1.4f, isSpecial = true, isAction = true)
+        // Linha 5: ?123, , , Emoji com borda azul, Espaço, ., Botão de Ação ciano (exato do print)
+        val row5 = listOf(
+            Key(CODE_MODE_CHANGE, "?123", widthWeight = 1.35f, isSpecial = true),
+            Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
+            Key(CODE_EMOJI, "😊", accents = listOf("😊", "😂", "❤️", "👍", "👏", "🙏", "😍", "🔥", "🎉", "😎"), widthWeight = 1.05f, isSpecial = true, isEmoji = true),
+            Key(CODE_SPACE, "espaço", widthWeight = 3.8f),
+            Key('.'.code, ".", widthWeight = 1.0f, isSpecial = true, accents = listOf("!", "?", "@", "-", "_", "/")),
+            Key(CODE_ENTER, "action", widthWeight = 1.45f, isAction = true)
         )
 
-        return listOf(row1, row2, row3, row4)
+        return listOf(row1, row2, row3, row4, row5)
     }
 
     private fun getSymbolRows(): List<List<Key>> {
@@ -330,103 +348,110 @@ class KeyboardView @JvmOverloads constructor(
             Key('('.code, "("), Key(')'.code, ")"), Key('/'.code, "/")
         )
         val row3 = listOf(
-            Key(CODE_MORE_SYMBOLS, "=\\<", widthWeight = 1.35f, isSpecial = true, isSymbolToggle = true),
             Key('*'.code, "*"), Key('"'.code, "\""), Key('\''.code, "'"), Key(':'.code, ":"),
-            Key(';'.code, ";"), Key('!'.code, "!"), Key('?'.code, "?"),
-            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.35f, isSpecial = true)
+            Key(';'.code, ";"), Key('!'.code, "!"), Key('?'.code, "?"), Key('['.code, "["),
+            Key(']'.code, "]"), Key('\\'.code, "\\")
         )
         val row4 = listOf(
-            Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.4f, isSpecial = true, isSymbolToggle = true),
-            Key(','.code, ",", widthWeight = 1.0f),
-            Key(CODE_SPACE, "espaço", widthWeight = 4.2f),
-            Key('.'.code, ".", widthWeight = 1.0f),
-            Key(CODE_ENTER, actionLabel, widthWeight = 1.4f, isSpecial = true, isAction = true)
+            Key(CODE_MORE_SYMBOLS, "=\\<", widthWeight = 1.45f, isSpecial = true),
+            Key('~'.code, "~"), Key('`'.code, "`"), Key('<'.code, "<"), Key('>'.code, ">"),
+            Key('='.code, "="), Key('_'.code, "_"), Key('|'.code, "|"),
+            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
-        return listOf(row1, row2, row3, row4)
+        val row5 = listOf(
+            Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.35f, isSpecial = true),
+            Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
+            Key(CODE_EMOJI, "😊", widthWeight = 1.05f, isSpecial = true, isEmoji = true),
+            Key(CODE_SPACE, "espaço", widthWeight = 3.8f),
+            Key('.'.code, ".", widthWeight = 1.0f, isSpecial = true),
+            Key(CODE_ENTER, "action", widthWeight = 1.45f, isAction = true)
+        )
+        return listOf(row1, row2, row3, row4, row5)
     }
 
     private fun getMoreSymbolRows(): List<List<Key>> {
         val row1 = listOf(
-            Key('~'.code, "~"), Key('`'.code, "`"), Key('|'.code, "|"), Key('\\'.code, "\\"),
-            Key('^'.code, "^"), Key('_'.code, "_"), Key('='.code, "="), Key('<'.code, "<"),
-            Key('>'.code, ">"), Key('['.code, "[")
+            Key('1'.code, "1"), Key('2'.code, "2"), Key('3'.code, "3"), Key('4'.code, "4"),
+            Key('5'.code, "5"), Key('6'.code, "6"), Key('7'.code, "7"), Key('8'.code, "8"),
+            Key('9'.code, "9"), Key('0'.code, "0")
         )
         val row2 = listOf(
-            Key(']'.code, "]"), Key('{'.code, "{"), Key('}'.code, "}"), Key('§'.code, "§"),
-            Key('°'.code, "°"), Key('·'.code, "·"), Key('•'.code, "•"), Key('…'.code, "…"),
-            Key('¿'.code, "¿"), Key('¡'.code, "¡")
+            Key('~'.code, "~"), Key('`'.code, "`"), Key('|'.code, "|"), Key('\\'.code, "\\"),
+            Key('^'.code, "^"), Key('°'.code, "°"), Key('•'.code, "•"), Key('·'.code, "·"),
+            Key('…'.code, "…"), Key('§'.code, "§")
         )
         val row3 = listOf(
-            Key(CODE_MORE_SYMBOLS, "?123", widthWeight = 1.35f, isSpecial = true, isSymbolToggle = true),
-            Key('¢'.code, "¢"), Key('£'.code, "£"), Key('€'.code, "€"), Key('¥'.code, "¥"),
-            Key('©'.code, "©"), Key('®'.code, "®"), Key('™'.code, "™"),
-            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.35f, isSpecial = true)
+            Key('¿'.code, "¿"), Key('¡'.code, "¡"), Key('¢'.code, "¢"), Key('£'.code, "£"),
+            Key('€'.code, "€"), Key('¥'.code, "¥"), Key('©'.code, "©"), Key('®'.code, "®"),
+            Key('™'.code, "™"), Key('±'.code, "±")
         )
         val row4 = listOf(
-            Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.4f, isSpecial = true, isSymbolToggle = true),
-            Key(','.code, ",", widthWeight = 1.0f),
-            Key(CODE_SPACE, "espaço", widthWeight = 4.2f),
-            Key('.'.code, ".", widthWeight = 1.0f),
-            Key(CODE_ENTER, actionLabel, widthWeight = 1.4f, isSpecial = true, isAction = true)
+            Key(CODE_MORE_SYMBOLS, "?123", widthWeight = 1.45f, isSpecial = true),
+            Key('<'.code, "<"), Key('>'.code, ">"), Key('{'.code, "{"), Key('}'.code, "}"),
+            Key('='.code, "="), Key('_'.code, "_"), Key('‰'.code, "‰"),
+            Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
-        return listOf(row1, row2, row3, row4)
+        val row5 = listOf(
+            Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.35f, isSpecial = true),
+            Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
+            Key(CODE_EMOJI, "😊", widthWeight = 1.05f, isSpecial = true, isEmoji = true),
+            Key(CODE_SPACE, "espaço", widthWeight = 3.8f),
+            Key('.'.code, ".", widthWeight = 1.0f, isSpecial = true),
+            Key(CODE_ENTER, "action", widthWeight = 1.45f, isAction = true)
+        )
+        return listOf(row1, row2, row3, row4, row5)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
 
-        val cornerRadius = 12f
+        val cornerRadius = 16f
 
         for (i in keys.indices) {
             val key = keys[i]
             val isPressed = isKeyPressed(key)
 
             val paint = when {
+                key.isAction -> if (isPressed) actionPressedPaint else actionKeyPaint
                 isPressed && !popupActive -> pressedKeyPaint
-                key.isAction -> actionKeyPaint
-                key.isSymbolToggle -> symbolBtnPaint
                 key.isSpecial -> specialKeyPaint
                 else -> keyPaint
             }
 
             canvas.drawRoundRect(key.rect, cornerRadius, cornerRadius, paint)
 
-            // Destaque do Shift
-            if (key.code == CODE_SHIFT) {
-                textPaint.color = when (shiftState) {
-                    SHIFT_LOCKED -> Color.parseColor("#38BDF8") // Azul brilhante
-                    SHIFT_ON -> Color.WHITE
-                    else -> Color.parseColor("#71717A")
+            // Borda azul ao redor da tecla de emoji (exato do screenshot de referência)
+            if (key.isEmoji) {
+                val insetRect = RectF(key.rect.left + 3f, key.rect.top + 3f, key.rect.right - 3f, key.rect.bottom - 3f)
+                canvas.drawRoundRect(insetRect, cornerRadius - 2f, cornerRadius - 2f, emojiBorderPaint)
+            }
+
+            // Renderização do conteúdo de cada tecla
+            when (key.code) {
+                CODE_SHIFT -> drawShiftIcon(canvas, key.rect)
+                CODE_BACKSPACE -> drawBackspaceIcon(canvas, key.rect)
+                CODE_ENTER -> drawActionIcon(canvas, key.rect)
+                CODE_EMOJI -> drawEmojiIcon(canvas, key.rect)
+                CODE_SPACE -> {
+                    // Barra de espaço limpa sem texto ou com texto translúcido sutil
                 }
-            } else if (key.isSymbolToggle) {
-                textPaint.color = Color.parseColor("#38BDF8") // ?123 em destaque
-            } else {
-                textPaint.color = Color.parseColor("#F4F4F5")
-            }
+                else -> {
+                    val isSpecialText = key.isSpecial || key.label.length > 1
+                    val fontPaint = if (isSpecialText) specialTextPaint else textPaint
 
-            // Tamanho da fonte por tecla
-            textPaint.textSize = when {
-                key.code == CODE_SPACE -> key.rect.height() * 0.28f
-                key.isSymbolToggle -> key.rect.height() * 0.32f
-                key.label.length > 2 -> key.rect.height() * 0.30f
-                else -> key.rect.height() * 0.42f
-            }
+                    fontPaint.textSize = when {
+                        key.label.length > 2 -> key.rect.height() * 0.30f
+                        else -> key.rect.height() * 0.44f
+                    }
 
-            val textY = key.rect.centerY() - ((textPaint.descent() + textPaint.ascent()) / 2)
-            canvas.drawText(key.label, key.rect.centerX(), textY, textPaint)
-
-            // Dica de número ou símbolo no canto superior
-            if (key.subLabel != null) {
-                subTextPaint.textSize = key.rect.height() * 0.22f
-                canvas.drawText(key.subLabel, key.rect.right - 14f, key.rect.top + 18f, subTextPaint)
-            } else if (key.accents.isNotEmpty()) {
-                subTextPaint.textSize = key.rect.height() * 0.18f
-                canvas.drawText("·", key.rect.right - 10f, key.rect.top + 14f, subTextPaint)
+                    val textY = key.rect.centerY() - ((fontPaint.descent() + fontPaint.ascent()) / 2)
+                    canvas.drawText(key.label, key.rect.centerX(), textY, fontPaint)
+                }
             }
         }
 
-        // Desenhar popup de acentos/símbolos se ativo
+        // Desenhar popup de acentos se ativo
         if (popupActive && popupKey != null && popupRects.isNotEmpty()) {
             drawPopup(canvas)
         }
@@ -439,20 +464,148 @@ class KeyboardView @JvmOverloads constructor(
         return false
     }
 
+    private fun drawShiftIcon(canvas: Canvas, rect: RectF) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val size = rect.height() * 0.22f
+
+        val color = when (shiftState) {
+            SHIFT_LOCKED -> Color.parseColor("#50B4CE") // Azul-ciano quando Caps Lock está travado
+            SHIFT_ON -> Color.WHITE // Branco sólido quando ativo para 1 letra
+            else -> Color.parseColor("#9DB1BC") // Cinza suave quando inativo
+        }
+
+        iconPaint.color = color
+        iconFillPaint.color = color
+
+        val path = Path().apply {
+            moveTo(cx, cy - size)
+            lineTo(cx - size, cy + (size * 0.2f))
+            lineTo(cx - (size * 0.4f), cy + (size * 0.2f))
+            lineTo(cx - (size * 0.4f), cy + size)
+            lineTo(cx + (size * 0.4f), cy + size)
+            lineTo(cx + (size * 0.4f), cy + (size * 0.2f))
+            lineTo(cx + size, cy + (size * 0.2f))
+            close()
+        }
+
+        if (shiftState != SHIFT_OFF) {
+            canvas.drawPath(path, iconFillPaint)
+        } else {
+            canvas.drawPath(path, iconPaint)
+        }
+    }
+
+    private fun drawBackspaceIcon(canvas: Canvas, rect: RectF) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val w = rect.height() * 0.26f
+        val h = rect.height() * 0.20f
+
+        iconPaint.color = Color.parseColor("#F1F5F7")
+
+        val path = Path().apply {
+            moveTo(cx - (w * 1.1f), cy)
+            lineTo(cx - (w * 0.4f), cy - h)
+            lineTo(cx + w, cy - h)
+            lineTo(cx + w, cy + h)
+            lineTo(cx - (w * 0.4f), cy + h)
+            close()
+        }
+        canvas.drawPath(path, iconPaint)
+
+        // Desenhar o X dentro do ícone de backspace
+        val xSize = h * 0.45f
+        val xCenter = cx + (w * 0.3f)
+        canvas.drawLine(xCenter - xSize, cy - xSize, xCenter + xSize, cy + xSize, iconPaint)
+        canvas.drawLine(xCenter - xSize, cy + xSize, xCenter + xSize, cy - xSize, iconPaint)
+    }
+
+    private fun drawActionIcon(canvas: Canvas, rect: RectF) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val r = rect.height() * 0.18f
+
+        iconPaint.color = Color.WHITE
+        iconFillPaint.color = Color.WHITE
+
+        when (actionType) {
+            ACTION_TYPE_SEARCH -> {
+                // Desenhar lupa 🔍 (idêntica ao print de referência)
+                val circleCenter = cx - (r * 0.2f)
+                val circleY = cy - (r * 0.2f)
+                canvas.drawCircle(circleCenter, circleY, r * 0.75f, iconPaint)
+                canvas.drawLine(
+                    circleCenter + (r * 0.5f),
+                    circleY + (r * 0.5f),
+                    circleCenter + (r * 1.3f),
+                    circleY + (r * 1.3f),
+                    iconPaint
+                )
+            }
+            ACTION_TYPE_SEND -> {
+                // Ícone de envio
+                val path = Path().apply {
+                    moveTo(cx - r, cy - r)
+                    lineTo(cx + r, cy)
+                    lineTo(cx - r, cy + r)
+                    lineTo(cx - (r * 0.4f), cy)
+                    close()
+                }
+                canvas.drawPath(path, iconFillPaint)
+            }
+            ACTION_TYPE_DONE -> {
+                // Checkmark ✓
+                canvas.drawLine(cx - r, cy, cx - (r * 0.3f), cy + (r * 0.7f), iconPaint)
+                canvas.drawLine(cx - (r * 0.3f), cy + (r * 0.7f), cx + r, cy - (r * 0.6f), iconPaint)
+            }
+            else -> {
+                // Seta de nova linha / Enter ↵
+                val path = Path().apply {
+                    moveTo(cx + r, cy - (r * 0.7f))
+                    lineTo(cx + r, cy + (r * 0.3f))
+                    lineTo(cx - r, cy + (r * 0.3f))
+                }
+                canvas.drawPath(path, iconPaint)
+                canvas.drawLine(cx - r, cy + (r * 0.3f), cx - (r * 0.3f), cy - (r * 0.3f), iconPaint)
+                canvas.drawLine(cx - r, cy + (r * 0.3f), cx - (r * 0.3f), cy + (r * 0.9f), iconPaint)
+            }
+        }
+    }
+
+    private fun drawEmojiIcon(canvas: Canvas, rect: RectF) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val r = rect.height() * 0.22f
+
+        iconPaint.color = Color.parseColor("#F1F5F7")
+
+        // Círculo do rosto
+        canvas.drawCircle(cx, cy, r, iconPaint)
+        // Olhos
+        val eyeRadius = r * 0.12f
+        iconFillPaint.color = Color.parseColor("#F1F5F7")
+        canvas.drawCircle(cx - (r * 0.35f), cy - (r * 0.2f), eyeRadius, iconFillPaint)
+        canvas.drawCircle(cx + (r * 0.35f), cy - (r * 0.2f), eyeRadius, iconFillPaint)
+        // Sorriso
+        val smileRect = RectF(cx - (r * 0.55f), cy - (r * 0.3f), cx + (r * 0.55f), cy + (r * 0.6f))
+        canvas.drawArc(smileRect, 30f, 120f, false, iconPaint)
+    }
+
     private fun calculatePopupLayout(key: Key) {
         popupRects.clear()
         val count = key.accents.size
-        val itemWidth = key.rect.width().coerceAtLeast(62f)
+        val itemWidth = key.rect.width().coerceAtLeast(64f)
         val itemHeight = key.rect.height()
         val totalWidth = count * itemWidth
 
         var startX = key.rect.centerX() - (totalWidth / 2f)
         if (startX < 8f) startX = 8f
         if (startX + totalWidth > width - 8f) startX = width - totalWidth - 8f
-        val popupY = key.rect.top - itemHeight - 10f
+        val popupY = key.rect.top - itemHeight - 12f
 
         for (i in 0 until count) {
-            val symbolChar = if (shiftState != SHIFT_OFF && key.accents[i].length == 1 && Character.isLetter(key.accents[i][0])) {
+            val charText = if (shiftState != SHIFT_OFF && key.accents[i].length == 1 && Character.isLetter(key.accents[i][0])) {
                 key.accents[i].uppercase()
             } else {
                 key.accents[i]
@@ -463,7 +616,7 @@ class KeyboardView @JvmOverloads constructor(
                 startX + ((i + 1) * itemWidth),
                 popupY + itemHeight
             )
-            popupRects.add(Pair(symbolChar, rect))
+            popupRects.add(Pair(charText, rect))
         }
     }
 
@@ -471,17 +624,17 @@ class KeyboardView @JvmOverloads constructor(
         if (popupRects.isEmpty()) return
         val first = popupRects.first().second
         val last = popupRects.last().second
-        val fullPopupRect = RectF(first.left - 4f, first.top - 4f, last.right + 4f, last.bottom + 4f)
+        val fullPopupRect = RectF(first.left - 6f, first.top - 6f, last.right + 6f, last.bottom + 6f)
 
-        canvas.drawRoundRect(fullPopupRect, 14f, 14f, popupBgPaint)
+        canvas.drawRoundRect(fullPopupRect, 18f, 18f, popupBgPaint)
 
         for (i in popupRects.indices) {
             val (symbol, rect) = popupRects[i]
             if (i == selectedPopupIndex) {
-                canvas.drawRoundRect(rect, 10f, 10f, actionKeyPaint)
+                canvas.drawRoundRect(rect, 12f, 12f, actionKeyPaint)
             }
             textPaint.color = Color.WHITE
-            textPaint.textSize = rect.height() * 0.40f
+            textPaint.textSize = rect.height() * 0.42f
             val textY = rect.centerY() - ((textPaint.descent() + textPaint.ascent()) / 2)
             canvas.drawText(symbol, rect.centerX(), textY, textPaint)
         }
@@ -503,7 +656,7 @@ class KeyboardView @JvmOverloads constructor(
                     activePointers[pointerId] = info
                     asyncVibrate()
 
-                    // DISPARO INSTANTÂNEO NO TOQUE (0ms delay - "clicou, já aparece!")
+                    // DISPARO INSTANTÂNEO NO PRIMEIRO TOQUE (0ms de latência!)
                     when (key.code) {
                         CODE_SHIFT -> listener?.onShift()
                         CODE_BACKSPACE -> {
@@ -517,6 +670,11 @@ class KeyboardView @JvmOverloads constructor(
                         }
                         CODE_MORE_SYMBOLS -> {
                             keyboardMode = if (keyboardMode == MODE_SYMBOLS) MODE_MORE_SYMBOLS else MODE_SYMBOLS
+                        }
+                        CODE_EMOJI -> {
+                            // Ao tocar em emoji rápido: insere sorriso, ao segurar: abre lista
+                            listener?.onKey(key.code, "😊")
+                            info.dispatchedChar = "😊"
                         }
                         CODE_SPACE -> listener?.onKey(CODE_SPACE, " ")
                         else -> {
@@ -561,7 +719,6 @@ class KeyboardView @JvmOverloads constructor(
                 if (popupActive && pointerId == popupPointerId) {
                     if (selectedPopupIndex >= 0 && selectedPopupIndex < popupRects.size) {
                         val chosen = popupRects[selectedPopupIndex].first
-                        // Substitui o caractere base que foi inserido no touch-down pelo acento escolhido
                         listener?.onReplaceKey(chosen)
                     }
                     popupActive = false
