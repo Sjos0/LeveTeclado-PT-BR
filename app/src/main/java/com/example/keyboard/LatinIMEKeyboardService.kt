@@ -6,6 +6,20 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.LinearLayout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+// import androidx.core.content.ContextCompat
+import android.widget.Toast
+import android.view.Gravity
+import android.graphics.Color
+import android.widget.TextView
+import android.widget.FrameLayout
+import android.os.Looper
+import android.os.Handler
+import android.content.pm.PackageManager
+import android.Manifest
 
 class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardActionListener {
 
@@ -15,6 +29,26 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     )
 
     private lateinit var prefs: KeyboardPreferences
+    private var voiceHelper: VoiceInputHelper? = null
+    private var recordingOverlay: FrameLayout? = null
+    private var amplitudeView: TextView? = null
+    private var statusLabel: TextView? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val amplitudeRunnable = object : Runnable {
+        override fun run() {
+            val amp = voiceHelper?.amplitude() ?: 0f
+            amplitudeView?.let { v ->
+                val scale = 1f + amp * 0.55f
+                v.scaleX = scale
+                v.scaleY = scale
+                val alpha = (0.45f + amp * 0.55f).coerceIn(0.4f, 1f)
+                v.alpha = alpha
+            }
+            if (voiceHelper?.isRecording == true) {
+                mainHandler.postDelayed(this, 80L)
+            }
+        }
+    }
     private lateinit var keyboardView: KeyboardView
     private lateinit var candidateView: CandidateView
 
@@ -88,8 +122,7 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
                         } catch (_: Exception) {}
                     }
                     CandidateView.ToolbarAction.MIC -> {
-                        // Dispara ação principal ou pesquisa por voz
-                        onActionKey()
+                        onMicTapped()
                     }
                 }
             }
@@ -337,4 +370,173 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         commitComposingText()
         lastAutoCorrection = null
     }
+
+
+    private fun onMicTapped() {
+        if (voiceHelper?.isRecording == true) {
+            finishRecordingAndTranscribe()
+            return
+        }
+        val key = prefs.groqApiKey
+        if (key.isBlank()) {
+            Toast.makeText(this, "Configure a chave da API Groq nas configurações do teclado.", Toast.LENGTH_LONG).show()
+            try {
+                val intent = android.content.Intent(this, com.example.MainActivity::class.java).apply {
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+            }
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(
+                this,
+                "Permissão de microfone necessária. Abra as configurações do app e conceda o acesso.",
+                Toast.LENGTH_LONG
+            ).show()
+            try {
+                val intent = android.content.Intent(this, com.example.MainActivity::class.java).apply {
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    putExtra("request_mic_permission", true)
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+            }
+            return
+        }
+        startVoiceRecording()
+    }
+
+    private fun startVoiceRecording() {
+        try {
+            if (voiceHelper == null) voiceHelper = VoiceInputHelper(this)
+            voiceHelper!!.start()
+            showRecordingOverlay()
+            mainHandler.post(amplitudeRunnable)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Não foi possível iniciar o microfone: ${e.message}", Toast.LENGTH_LONG).show()
+            hideRecordingOverlay()
+        }
+    }
+
+    private fun finishRecordingAndTranscribe() {
+        mainHandler.removeCallbacks(amplitudeRunnable)
+        val file = voiceHelper?.stop()
+        statusLabel?.text = "Transcrevendo…"
+        amplitudeView?.text = "…"
+        if (file == null) {
+            hideRecordingOverlay()
+            Toast.makeText(this, "Gravação inválida.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val apiKey = prefs.groqApiKey
+        CoroutineScope(Dispatchers.Main).launch {
+            val result = GroqSpeechClient.transcribe(apiKey, file)
+            try {
+                file.delete()
+            } catch (_: Exception) {
+            }
+            hideRecordingOverlay()
+            when (result) {
+                is GroqSpeechClient.Result.Success -> {
+                    commitComposingText()
+                    currentInputConnection?.commitText(result.text, 1)
+                    Toast.makeText(this@LatinIMEKeyboardService, "Texto inserido", Toast.LENGTH_SHORT).show()
+                }
+                is GroqSpeechClient.Result.Error -> {
+                    Toast.makeText(this@LatinIMEKeyboardService, result.message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun showRecordingOverlay() {
+        hideRecordingOverlay()
+        val density = resources.displayMetrics.density
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#E01B2327"))
+            isClickable = true
+        }
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
+        val title = TextView(this).apply {
+            text = "Ouvindo… toque no quadrado para enviar"
+            setTextColor(Color.parseColor("#E2E8F0"))
+            textSize = 13f
+            gravity = Gravity.CENTER
+        }
+        statusLabel = title
+        val ring = TextView(this).apply {
+            text = "🎤"
+            textSize = 28f
+            gravity = Gravity.CENTER
+            setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+            setTextColor(Color.parseColor("#50B4CE"))
+        }
+        amplitudeView = ring
+        val stopBtn = TextView(this).apply {
+            text = "■"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#3B82F6"))
+            setPadding((28 * density).toInt(), (10 * density).toInt(), (28 * density).toInt(), (10 * density).toInt())
+            setOnClickListener { finishRecordingAndTranscribe() }
+        }
+        val cancel = TextView(this).apply {
+            text = "Cancelar"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(0, (8 * density).toInt(), 0, 0)
+            setOnClickListener {
+                mainHandler.removeCallbacks(amplitudeRunnable)
+                voiceHelper?.cancel()
+                hideRecordingOverlay()
+            }
+        }
+        column.addView(title)
+        column.addView(ring)
+        column.addView(stopBtn)
+        column.addView(cancel)
+        overlay.addView(column, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+        // Inserir overlay acima do teclado no root
+        val root = keyboardView.parent as? LinearLayout
+        if (root != null) {
+            root.addView(overlay, 0, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+            recordingOverlay = overlay
+        }
+    }
+
+    private fun hideRecordingOverlay() {
+        val overlay = recordingOverlay ?: return
+        try {
+            (overlay.parent as? android.view.ViewGroup)?.removeView(overlay)
+        } catch (_: Exception) {
+        }
+        recordingOverlay = null
+        amplitudeView = null
+        statusLabel = null
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(amplitudeRunnable)
+        voiceHelper?.cancel()
+        hideRecordingOverlay()
+        super.onDestroy()
+    }
+
 }

@@ -20,6 +20,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
+import android.content.pm.PackageManager
+import android.Manifest
 import com.example.keyboard.KeyboardPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,10 +35,15 @@ class MainActivity : Activity() {
     private fun dp(value: Int) = (value * density).toInt()
 
     private lateinit var statusContainer: LinearLayout
+    private val REQUEST_MIC = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = KeyboardPreferences(this)
+
+        if (intent?.getBooleanExtra("request_mic_permission", false) == true) {
+            requestMicPermission()
+        }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -159,7 +167,16 @@ class MainActivity : Activity() {
             showDictionaryDialog()
         })
 
-        // 7. Verificar atualizações
+        // 7. Fala → texto (Groq Whisper)
+        listContainer.addView(createSettingsItem(
+            iconRes = R.drawable.ic_settings_preferences,
+            title = "Fala → texto (IA)",
+            subtitle = if (prefs.groqApiKey.isNotBlank()) "API Groq configurada • Toque para editar a chave" else "Cole a chave da API Groq para transcrever voz"
+        ) {
+            showSpeechToTextDialog()
+        })
+
+        // 8. Verificar atualizações
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_update,
             title = "Verificar atualizações",
@@ -579,4 +596,77 @@ class MainActivity : Activity() {
             }
         }
     }
+
+
+    private fun showSpeechToTextDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+        }
+
+        val info = TextView(this).apply {
+            text = "Cole sua chave da API Groq (gsk_…). Ela fica salva só neste aparelho e é usada para transcrever o áudio do microfone do teclado (Whisper)."
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 13f
+            setPadding(0, 0, 0, dp(12))
+        }
+        container.addView(info)
+
+        val input = EditText(this).apply {
+            hint = "gsk_..."
+            setHintTextColor(Color.parseColor("#64748B"))
+            setTextColor(Color.parseColor("#F4F4F5"))
+            setBackgroundColor(Color.parseColor("#262C36"))
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setText(prefs.groqApiKey)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        }
+        container.addView(input)
+
+        val micBtn = Button(this).apply {
+            text = "Conceder permissão de microfone"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#3B82F6"))
+            setOnClickListener { requestMicPermission() }
+        }
+        val micPad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(12)
+        }
+        container.addView(micBtn, micPad)
+
+        AlertDialog.Builder(this)
+            .setTitle("Fala → texto")
+            .setView(container)
+            .setPositiveButton("Salvar") { _, _ ->
+                prefs.groqApiKey = input.text?.toString().orEmpty()
+                Toast.makeText(this, if (prefs.groqApiKey.isNotBlank()) "Chave salva" else "Chave removida", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun requestMicPermission() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Microfone já permitido", Toast.LENGTH_SHORT).show()
+            return
+        }
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_MIC) {
+            val ok = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            Toast.makeText(
+                this,
+                if (ok) "Microfone permitido" else "Permissão de microfone negada",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
 }
