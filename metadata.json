@@ -1,0 +1,6 @@
+{
+  "name": "Teclado PT-BR",
+  "description": "Teclado leve e offline para português brasileiro com sugestões, autocorreção e baixo consumo de memória e bateria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

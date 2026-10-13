@@ -1,0 +1,26 @@
+# Gradle & Build Caches
+.gradle/
+build/
+**/build/
+.build-outputs/
+out/
+
+# Rust Build Artifacts (Previne os milhares de arquivos temporários do compilador cargo)
+target/
+**/target/
+**/*.rs.bk
+
+# Android Studio & IDE
+*.iml
+.idea/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+local.properties
+/captures/
+.DS_Store
+
+# Secrets & Local keys
+.env
+debug.keystore
+debug.keystore.base64
