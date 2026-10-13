@@ -265,13 +265,36 @@ class KeyboardView @JvmOverloads constructor(
         val rowHeight = (h - (paddingV * (numRows + 1))) / numRows
         var currentY = paddingV
 
-        for (row in rows) {
+        // Largura base de tecla para linhas de 10 teclas (linhas 1 e 2)
+        val standardAvailableWidth = w - (paddingH * 11)
+        val standardKeyWidth = standardAvailableWidth / 10f
+
+        for (rowIndex in rows.indices) {
+            val row = rows[rowIndex]
             val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-            val availableWidth = w - (paddingH * (row.size + 1))
-            var currentX = paddingH
+
+            // Se for a linha 3 (a..l com 9 teclas de peso 1.0 no modo texto),
+            // usa a largura padrão das teclas e centraliza com recuo igual à imagem de referência
+            val isRow3NineKeys = keyboardMode == MODE_TEXT && rowIndex == 2 && row.size == 9
+
+            val availableWidth = if (isRow3NineKeys) {
+                (9 * standardKeyWidth) + (paddingH * 8)
+            } else {
+                w - (paddingH * (row.size + 1))
+            }
+
+            var currentX = if (isRow3NineKeys) {
+                (w - availableWidth) / 2f
+            } else {
+                paddingH
+            }
 
             for (keyDef in row) {
-                val keyWidth = (keyDef.widthWeight / totalWeight) * availableWidth
+                val keyWidth = if (isRow3NineKeys) {
+                    standardKeyWidth
+                } else {
+                    (keyDef.widthWeight / totalWeight) * availableWidth
+                }
                 keyDef.rect.set(currentX, currentY, currentX + keyWidth, currentY + rowHeight)
 
                 if (keyDef.code > 0 && Character.isLetter(keyDef.code)) {
@@ -311,7 +334,7 @@ class KeyboardView @JvmOverloads constructor(
             Key('p'.code, "p")
         )
 
-        // Linha 3: a s d f g h j k l ç (10 teclas alinhadas perfeitamente com tecla 'ç')
+        // Linha 3: a s d f g h j k l (9 teclas com recuo idêntico à imagem de referência)
         val row3 = listOf(
             Key('a'.code, "a", accents = listOf("á", "à", "â", "ã", "ä")),
             Key('s'.code, "s", accents = listOf("ß")),
@@ -321,8 +344,7 @@ class KeyboardView @JvmOverloads constructor(
             Key('h'.code, "h"),
             Key('j'.code, "j"),
             Key('k'.code, "k"),
-            Key('l'.code, "l"),
-            Key('ç'.code, "ç", accents = listOf("c"))
+            Key('l'.code, "l")
         )
 
         // Linha 4: Shift, z x c v b n m, Backspace

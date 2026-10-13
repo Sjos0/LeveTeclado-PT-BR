@@ -40,40 +40,58 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
             onSuggestionClickListener = { chosen ->
                 commitSuggestion(chosen)
             }
-            onSymbolsClickListener = {
-                keyboardView.keyboardMode = if (keyboardView.keyboardMode == KeyboardView.MODE_TEXT) {
-                    KeyboardView.MODE_SYMBOLS
-                } else {
-                    KeyboardView.MODE_TEXT
-                }
-            }
-            onSettingsClickListener = {
-                try {
-                    val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
-                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    startActivity(intent)
-                } catch (_: Exception) {}
-            }
-            onEmojiClickListener = {
-                commitComposingText()
-                currentInputConnection?.commitText("😊", 1)
-            }
-            onPasteClickListener = {
-                try {
-                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                    val clip = clipboard?.primaryClip
-                    if (clip != null && clip.itemCount > 0) {
-                        val pasteText = clip.getItemAt(0).text?.toString()
-                        if (!pasteText.isNullOrEmpty()) {
-                            commitComposingText()
-                            currentInputConnection?.commitText(pasteText, 1)
+            onToolbarActionClickListener = { action ->
+                when (action) {
+                    CandidateView.ToolbarAction.MENU -> {
+                        // Alterna para símbolos/menu
+                        keyboardView.keyboardMode = if (keyboardView.keyboardMode == KeyboardView.MODE_TEXT) {
+                            KeyboardView.MODE_SYMBOLS
+                        } else {
+                            KeyboardView.MODE_TEXT
                         }
                     }
-                } catch (_: Exception) {}
-            }
-            onSearchClickListener = {
-                onActionKey()
+                    CandidateView.ToolbarAction.CURSOR -> {
+                        // Navegação de cursor / seleção rápida
+                        currentInputConnection?.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT))
+                        currentInputConnection?.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_LEFT))
+                    }
+                    CandidateView.ToolbarAction.CLIPBOARD -> {
+                        // Colar da área de transferência
+                        try {
+                            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                            val clip = clipboard?.primaryClip
+                            if (clip != null && clip.itemCount > 0) {
+                                val pasteText = clip.getItemAt(0).text?.toString()
+                                if (!pasteText.isNullOrEmpty()) {
+                                    commitComposingText()
+                                    currentInputConnection?.commitText(pasteText, 1)
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                    CandidateView.ToolbarAction.TRANSLATE -> {
+                        // Ação de tradução: comuta layout ou abre configurações se necessário
+                        try {
+                            val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    CandidateView.ToolbarAction.SETTINGS -> {
+                        // Abre configurações do app
+                        try {
+                            val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    CandidateView.ToolbarAction.MIC -> {
+                        // Dispara ação principal ou pesquisa por voz
+                        onActionKey()
+                    }
+                }
             }
         }
 
@@ -304,8 +322,14 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     private fun updateCandidates() {
         if (!::candidateView.isInitialized) return
         val prefix = composingWord.toString()
-        val suggestions = NativeEngine.getSuggestions(previousWord, prefix)
-        candidateView.setSuggestions(suggestions)
+        if (prefix.isNotEmpty()) {
+            val suggestions = NativeEngine.getSuggestions(previousWord, prefix)
+            candidateView.setSuggestions(suggestions)
+        } else {
+            // Quando não estiver escrevendo nada ou terminou a palavra, esvazia as sugestões
+            // para que a barra volte imediatamente a exibir a toolbar com os ícones da referência
+            candidateView.setSuggestions(emptyList())
+        }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

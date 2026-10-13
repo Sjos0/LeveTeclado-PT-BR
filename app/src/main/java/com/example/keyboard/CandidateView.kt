@@ -1,41 +1,58 @@
 package com.example.keyboard
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import com.example.MainActivity
 
+/**
+ * Barra superior do teclado:
+ * - Quando o usuário estiver digitando (composing): exibe sugestões de palavras com chip central destacado.
+ * - Quando o usuário NÃO estiver digitando ou finalizar uma palavra: exibe a barra de ferramentas
+ *   com ícones vetoriais fiéis à referência:
+ *   [Menu 4-quadrados, Cursor/Seleção, Área de transferência/Colar, Tradutor, Configurações, Microfone]
+ */
 class CandidateView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    enum class ToolbarAction {
+        MENU,
+        CURSOR,
+        CLIPBOARD,
+        TRANSLATE,
+        SETTINGS,
+        MIC
+    }
+
     var onSuggestionClickListener: ((String) -> Unit)? = null
-    var onSettingsClickListener: (() -> Unit)? = null
-    var onSymbolsClickListener: (() -> Unit)? = null
-    var onEmojiClickListener: (() -> Unit)? = null
-    var onPasteClickListener: (() -> Unit)? = null
-    var onSearchClickListener: (() -> Unit)? = null
+    var onToolbarActionClickListener: ((ToolbarAction) -> Unit)? = null
 
     private var suggestions: List<String> = emptyList()
     private val candidateRects = ArrayList<Pair<String, RectF>>(3)
     private var pressedIndex = -1
 
-    // Ícones da barra de ferramentas (Símbolos, Configurações, Emojis, Colar, Pesquisa)
-    private val toolbarIcons = listOf("?123", "⚙", "😊", "📋", "🔍")
-    private val toolbarRects = ArrayList<Pair<String, RectF>>(5)
+    private val toolbarActions = listOf(
+        ToolbarAction.MENU,
+        ToolbarAction.CURSOR,
+        ToolbarAction.CLIPBOARD,
+        ToolbarAction.TRANSLATE,
+        ToolbarAction.SETTINGS,
+        ToolbarAction.MIC
+    )
+    private val toolbarRects = ArrayList<Pair<ToolbarAction, RectF>>(6)
     private var pressedToolbarIndex = -1
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#263238") // Fundo elegante alinhado à referência
+        color = Color.parseColor("#263238") // Fundo alinhado à referência
     }
 
     private val dividerPaint = Paint().apply {
@@ -55,16 +72,27 @@ class CandidateView @JvmOverloads constructor(
     }
 
     private val normalTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CFD8DC") // Tom legível e de alto contraste contra #263238
+        color = Color.parseColor("#CFD8DC") // Tom legível e de alto contraste
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
 
-    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#ECEFF1") // Tom claro para ícones funcionais
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    // Tintura dos ícones da toolbar (cinza-claro #90A4AE / #CFD8DC como no teclado de referência)
+    private val iconStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B0BEC5")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
+
+    private val iconFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B0BEC5")
+        style = Paint.Style.FILL
+    }
+
+    // Reutilização de objetos gráficos para zero alocação de memória no onDraw
+    private val tempRect = RectF()
+    private val tempPath = Path()
 
     fun setSuggestions(list: List<String>) {
         suggestions = list.take(3)
@@ -75,7 +103,8 @@ class CandidateView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val density = resources.displayMetrics.density
-        val height = (44 * density).toInt() // Altura ergonômica da barra de sugestões
+        // 44 dp ergonômico idêntico à imagem de referência
+        val height = (44 * density).toInt()
         setMeasuredDimension(width, height)
     }
 
@@ -100,12 +129,12 @@ class CandidateView @JvmOverloads constructor(
                 candidateRects.add(Pair(suggestions[i], rect))
             }
         } else {
-            // Barra de ferramentas quando não está em composição
-            val iconCount = toolbarIcons.size
-            val itemWidth = w / iconCount
-            for (i in 0 until iconCount) {
+            // 6 botões de ferramentas distribuídos na largura exatamente como na imagem
+            val count = toolbarActions.size
+            val itemWidth = w / count
+            for (i in 0 until count) {
                 val rect = RectF(i * itemWidth, 0f, (i + 1) * itemWidth, h)
-                toolbarRects.add(Pair(toolbarIcons[i], rect))
+                toolbarRects.add(Pair(toolbarActions[i], rect))
             }
         }
     }
@@ -117,15 +146,17 @@ class CandidateView @JvmOverloads constructor(
         // Linha divisória inferior sutil
         canvas.drawLine(0f, height.toFloat() - 1f, width.toFloat(), height.toFloat() - 1f, dividerPaint)
 
+        val density = resources.displayMetrics.density
+
         if (suggestions.isNotEmpty()) {
-            // Desenhar sugestões com estilo de chips modernos
+            // Desenhar sugestões com estilo de chips
             for (i in candidateRects.indices) {
                 val (text, rect) = candidateRects[i]
 
                 if (i == pressedIndex) {
                     canvas.drawRoundRect(
                         RectF(rect.left + 6f, rect.top + 6f, rect.right - 6f, rect.bottom - 6f),
-                        10f, 10f, pressedChipPaint
+                        10f * density, 10f * density, pressedChipPaint
                     )
                 }
 
@@ -141,17 +172,161 @@ class CandidateView @JvmOverloads constructor(
                 }
             }
         } else {
-            // Desenhar botões da barra de ferramentas
+            // Desenhar ícones da barra de ferramentas (100% vetoriais, zero emoji)
+            iconStrokePaint.strokeWidth = 2f * density
+
             for (i in toolbarRects.indices) {
-                val (icon, rect) = toolbarRects[i]
+                val (action, rect) = toolbarRects[i]
 
                 if (i == pressedToolbarIndex) {
-                    canvas.drawCircle(rect.centerX(), rect.centerY(), rect.height() * 0.38f, pressedChipPaint)
+                    val radius = (rect.height() * 0.40f).coerceAtMost(rect.width() * 0.40f)
+                    canvas.drawCircle(rect.centerX(), rect.centerY(), radius, pressedChipPaint)
                 }
 
-                iconPaint.textSize = if (icon.length > 2) rect.height() * 0.34f else rect.height() * 0.42f
-                val textY = rect.centerY() - ((iconPaint.descent() + iconPaint.ascent()) / 2)
-                canvas.drawText(icon, rect.centerX(), textY, iconPaint)
+                drawToolbarIcon(canvas, action, rect, density)
+            }
+        }
+    }
+
+    private fun drawToolbarIcon(canvas: Canvas, action: ToolbarAction, rect: RectF, density: Float) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val iconSize = 9.5f * density
+
+        when (action) {
+            ToolbarAction.MENU -> {
+                // 4 pequenos quadrados arredondados (ícone de menu/widgets da referência)
+                val blockSize = iconSize * 0.42f
+                val gap = iconSize * 0.20f
+                val r = 1.5f * density
+
+                // Superior esquerdo
+                tempRect.set(cx - gap - blockSize, cy - gap - blockSize, cx - gap, cy - gap)
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+                // Superior direito
+                tempRect.set(cx + gap, cy - gap - blockSize, cx + gap + blockSize, cy - gap)
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+                // Inferior esquerdo
+                tempRect.set(cx - gap - blockSize, cy + gap, cx - gap, cy + gap + blockSize)
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+                // Inferior direito
+                tempRect.set(cx + gap, cy + gap, cx + gap + blockSize, cy + gap + blockSize)
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+            }
+
+            ToolbarAction.CURSOR -> {
+                // Barra vertical com setas horizontais (edição de texto / cursor da referência)
+                val barHalfH = iconSize * 0.70f
+                canvas.drawLine(cx, cy - barHalfH, cx, cy + barHalfH, iconStrokePaint)
+
+                // Pequenas travas nas pontas
+                val capW = iconSize * 0.25f
+                canvas.drawLine(cx - capW, cy - barHalfH, cx + capW, cy - barHalfH, iconStrokePaint)
+                canvas.drawLine(cx - capW, cy + barHalfH, cx + capW, cy + barHalfH, iconStrokePaint)
+
+                // Seta esquerda
+                tempPath.reset()
+                tempPath.moveTo(cx - (iconSize * 0.35f), cy - (iconSize * 0.30f))
+                tempPath.lineTo(cx - (iconSize * 0.75f), cy)
+                tempPath.lineTo(cx - (iconSize * 0.35f), cy + (iconSize * 0.30f))
+                canvas.drawPath(tempPath, iconStrokePaint)
+
+                // Seta direita
+                tempPath.reset()
+                tempPath.moveTo(cx + (iconSize * 0.35f), cy - (iconSize * 0.30f))
+                tempPath.lineTo(cx + (iconSize * 0.75f), cy)
+                tempPath.lineTo(cx + (iconSize * 0.35f), cy + (iconSize * 0.30f))
+                canvas.drawPath(tempPath, iconStrokePaint)
+            }
+
+            ToolbarAction.CLIPBOARD -> {
+                // Prancheta / Área de transferência (ícone clipboard da referência)
+                val boardW = iconSize * 0.65f
+                val boardH = iconSize * 0.85f
+                val corner = 2f * density
+
+                tempRect.set(cx - boardW, cy - (boardH * 0.7f), cx + boardW, cy + (boardH * 0.9f))
+                canvas.drawRoundRect(tempRect, corner, corner, iconStrokePaint)
+
+                // Clipe superior da prancheta
+                val clipW = iconSize * 0.35f
+                val clipH = iconSize * 0.25f
+                tempRect.set(cx - clipW, cy - (boardH * 0.9f), cx + clipW, cy - (boardH * 0.5f))
+                canvas.drawRoundRect(tempRect, 1.5f * density, 1.5f * density, iconFillPaint)
+
+                // Linhas de texto na prancheta
+                val lineHalfW = iconSize * 0.38f
+                canvas.drawLine(cx - lineHalfW, cy - (iconSize * 0.15f), cx + lineHalfW, cy - (iconSize * 0.15f), iconStrokePaint)
+                canvas.drawLine(cx - lineHalfW, cy + (iconSize * 0.20f), cx + lineHalfW, cy + (iconSize * 0.20f), iconStrokePaint)
+                canvas.drawLine(cx - lineHalfW, cy + (iconSize * 0.55f), cx + (lineHalfW * 0.3f), cy + (iconSize * 0.55f), iconStrokePaint)
+            }
+
+            ToolbarAction.TRANSLATE -> {
+                // Ícone do Google Tradutor (dois balões / 'G' e caractere asiático da referência)
+                val bubbleW = iconSize * 0.65f
+                val bubbleH = iconSize * 0.55f
+                val r = 2.5f * density
+
+                // Balão traseiro (esquerda)
+                tempRect.set(cx - (bubbleW * 0.95f), cy - (bubbleH * 0.95f), cx + (bubbleW * 0.20f), cy + (bubbleH * 0.35f))
+                canvas.drawRoundRect(tempRect, r, r, iconStrokePaint)
+
+                // Balão frontal (direita)
+                tempRect.set(cx - (bubbleW * 0.25f), cy - (bubbleH * 0.30f), cx + (bubbleW * 0.90f), cy + (bubbleH * 0.90f))
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+
+                // Letra estilizada no balão frontal
+                val origColor = iconStrokePaint.color
+                iconStrokePaint.color = Color.parseColor("#263238")
+                val txtCx = tempRect.centerX()
+                val txtCy = tempRect.centerY()
+                canvas.drawLine(txtCx - (2f * density), txtCy - (2f * density), txtCx + (2f * density), txtCy - (2f * density), iconStrokePaint)
+                canvas.drawLine(txtCx, txtCy - (2f * density), txtCx, txtCy + (2f * density), iconStrokePaint)
+                iconStrokePaint.color = origColor
+            }
+
+            ToolbarAction.SETTINGS -> {
+                // Ícone de engrenagem / Configurações da referência
+                val rOuter = iconSize * 0.65f
+                val rInner = iconSize * 0.30f
+
+                canvas.drawCircle(cx, cy, rOuter, iconStrokePaint)
+                canvas.drawCircle(cx, cy, rInner, iconFillPaint)
+
+                // Dentes da engrenagem
+                val teethCount = 6
+                val toothLen = iconSize * 0.25f
+                for (t in 0 until teethCount) {
+                    val angle = Math.toRadians((t * (360.0 / teethCount)))
+                    val cos = Math.cos(angle).toFloat()
+                    val sin = Math.sin(angle).toFloat()
+                    canvas.drawLine(
+                        cx + (cos * (rOuter - (1f * density))),
+                        cy + (sin * (rOuter - (1f * density))),
+                        cx + (cos * (rOuter + toothLen)),
+                        cy + (sin * (rOuter + toothLen)),
+                        iconStrokePaint
+                    )
+                }
+            }
+
+            ToolbarAction.MIC -> {
+                // Microfone / Digitação por voz da referência
+                val micW = iconSize * 0.30f
+                val micH = iconSize * 0.65f
+                val r = micW
+
+                // Corpo do microfone
+                tempRect.set(cx - micW, cy - micH, cx + micW, cy + (micH * 0.25f))
+                canvas.drawRoundRect(tempRect, r, r, iconFillPaint)
+
+                // Arco do suporte do microfone
+                tempRect.set(cx - (micW * 1.7f), cy - (micH * 0.40f), cx + (micW * 1.7f), cy + (micH * 0.55f))
+                canvas.drawArc(tempRect, 0f, 180f, false, iconStrokePaint)
+
+                // Haste inferior
+                canvas.drawLine(cx, cy + (micH * 0.55f), cx, cy + (micH * 1.05f), iconStrokePaint)
+                canvas.drawLine(cx - (iconSize * 0.30f), cy + (micH * 1.05f), cx + (iconSize * 0.30f), cy + (micH * 1.05f), iconStrokePaint)
             }
         }
     }
@@ -186,37 +361,8 @@ class CandidateView @JvmOverloads constructor(
                     val chosen = candidateRects[pressedIndex].first
                     onSuggestionClickListener?.invoke(chosen)
                 } else if (suggestions.isEmpty() && pressedToolbarIndex >= 0 && pressedToolbarIndex < toolbarRects.size) {
-                    when (pressedToolbarIndex) {
-                        0 -> {
-                            // Acesso imediato à seleção de símbolos
-                            onSymbolsClickListener?.invoke()
-                        }
-                        1 -> {
-                            // Configurações
-                            if (onSettingsClickListener != null) {
-                                onSettingsClickListener?.invoke()
-                            } else {
-                                try {
-                                    val intent = Intent(context, MainActivity::class.java).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {}
-                            }
-                        }
-                        2 -> {
-                            // Emojis
-                            onEmojiClickListener?.invoke()
-                        }
-                        3 -> {
-                            // Colar da área de transferência
-                            onPasteClickListener?.invoke()
-                        }
-                        4 -> {
-                            // Ação de pesquisa
-                            onSearchClickListener?.invoke()
-                        }
-                    }
+                    val action = toolbarRects[pressedToolbarIndex].first
+                    onToolbarActionClickListener?.invoke(action)
                 }
                 pressedIndex = -1
                 pressedToolbarIndex = -1
