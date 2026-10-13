@@ -137,6 +137,19 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         }
     }
 
+    override fun onReplaceKey(text: String) {
+        val ic = currentInputConnection ?: return
+        if (composingWord.isNotEmpty()) {
+            composingWord.deleteCharAt(composingWord.length - 1)
+            composingWord.append(text)
+            ic.setComposingText(composingWord.toString(), 1)
+            updateCandidates()
+        } else {
+            ic.deleteSurroundingText(1, 0)
+            ic.commitText(text, 1)
+        }
+    }
+
     private fun handleSpace() {
         val ic = currentInputConnection ?: return
         val typed = composingWord.toString()

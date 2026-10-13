@@ -23,6 +23,7 @@ class KeyboardView @JvmOverloads constructor(
 
     interface OnKeyboardActionListener {
         fun onKey(code: Int, text: String?)
+        fun onReplaceKey(text: String)
         fun onActionKey()
         fun onBackspace()
         fun onShift()
@@ -136,7 +137,8 @@ class KeyboardView @JvmOverloads constructor(
         var key: Key,
         var startX: Float,
         var startY: Float,
-        var isLongPressTriggered: Boolean = false
+        var isLongPressTriggered: Boolean = false,
+        var dispatchedChar: String? = null
     )
 
     private val activePointers = HashMap<Int, PointerInfo>()
@@ -497,25 +499,33 @@ class KeyboardView @JvmOverloads constructor(
                 val key = findKey(x, y)
 
                 if (key != null) {
-                    // OTIMIZAÇÃO: Chording / Roll-over imediato!
-                    // Se já havia outra tecla pressionada por outro dedo, dispara ela imediatamente para evitar perda de digitação rápida
-                    if (activePointers.isNotEmpty()) {
-                        for ((_, otherInfo) in activePointers) {
-                            if (!otherInfo.isLongPressTriggered && otherInfo.key != key) {
-                                dispatchKey(otherInfo.key)
-                                otherInfo.isLongPressTriggered = true // já consumida
-                            }
+                    val info = PointerInfo(key, x, y)
+                    activePointers[pointerId] = info
+                    asyncVibrate()
+
+                    // DISPARO INSTANTÂNEO NO TOQUE (0ms delay - "clicou, já aparece!")
+                    when (key.code) {
+                        CODE_SHIFT -> listener?.onShift()
+                        CODE_BACKSPACE -> {
+                            listener?.onBackspace()
+                            backspaceDelay = 350L
+                            handler.postDelayed(backspaceRunnable, backspaceDelay)
+                        }
+                        CODE_ENTER -> listener?.onActionKey()
+                        CODE_MODE_CHANGE -> {
+                            keyboardMode = if (keyboardMode == MODE_TEXT) MODE_SYMBOLS else MODE_TEXT
+                        }
+                        CODE_MORE_SYMBOLS -> {
+                            keyboardMode = if (keyboardMode == MODE_SYMBOLS) MODE_MORE_SYMBOLS else MODE_SYMBOLS
+                        }
+                        CODE_SPACE -> listener?.onKey(CODE_SPACE, " ")
+                        else -> {
+                            listener?.onKey(key.code, key.label)
+                            info.dispatchedChar = key.label
                         }
                     }
 
-                    activePointers[pointerId] = PointerInfo(key, x, y)
-                    asyncVibrate()
-
-                    if (key.code == CODE_BACKSPACE) {
-                        listener?.onBackspace()
-                        backspaceDelay = 350L
-                        handler.postDelayed(backspaceRunnable, backspaceDelay)
-                    } else if (key.accents.isNotEmpty()) {
+                    if (key.accents.isNotEmpty()) {
                         pendingLongPressPointerId = pointerId
                         handler.postDelayed(longPressRunnable, 300L)
                     }
@@ -551,7 +561,8 @@ class KeyboardView @JvmOverloads constructor(
                 if (popupActive && pointerId == popupPointerId) {
                     if (selectedPopupIndex >= 0 && selectedPopupIndex < popupRects.size) {
                         val chosen = popupRects[selectedPopupIndex].first
-                        listener?.onKey(chosen[0].code, chosen)
+                        // Substitui o caractere base que foi inserido no touch-down pelo acento escolhido
+                        listener?.onReplaceKey(chosen)
                     }
                     popupActive = false
                     popupKey = null
@@ -562,10 +573,7 @@ class KeyboardView @JvmOverloads constructor(
                     return true
                 }
 
-                val info = activePointers.remove(pointerId)
-                if (info != null && !info.isLongPressTriggered) {
-                    dispatchKey(info.key)
-                }
+                activePointers.remove(pointerId)
 
                 if (actionMasked == MotionEvent.ACTION_UP) {
                     activePointers.clear()
@@ -590,26 +598,6 @@ class KeyboardView @JvmOverloads constructor(
             }
         }
         return super.onTouchEvent(event)
-    }
-
-    private fun dispatchKey(key: Key) {
-        when (key.code) {
-            CODE_SHIFT -> listener?.onShift()
-            CODE_BACKSPACE -> {
-                // já dispara no down e repeat
-            }
-            CODE_ENTER -> listener?.onActionKey()
-            CODE_MODE_CHANGE -> {
-                keyboardMode = if (keyboardMode == MODE_TEXT) MODE_SYMBOLS else MODE_TEXT
-            }
-            CODE_MORE_SYMBOLS -> {
-                keyboardMode = if (keyboardMode == MODE_SYMBOLS) MODE_MORE_SYMBOLS else MODE_SYMBOLS
-            }
-            CODE_SPACE -> listener?.onKey(CODE_SPACE, " ")
-            else -> {
-                listener?.onKey(key.code, key.label)
-            }
-        }
     }
 
     private fun findKey(x: Float, y: Float): Key? {

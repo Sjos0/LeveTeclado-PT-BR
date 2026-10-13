@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Apenas permissão de vibração para feedback tátil opcional nas teclas. -->
-    <!-- NENHUMA PERMISSÃO DE INTERNET É DECLARADA (Offline por design). -->
+    <!-- Permissão de vibração para feedback tátil opcional nas teclas. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Permissão de internet utilizada estritamente pelo verificador de atualizações do GitHub. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

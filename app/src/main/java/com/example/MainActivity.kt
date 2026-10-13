@@ -16,9 +16,13 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.net.Uri
 import android.widget.Switch
 import android.widget.TextView
 import com.example.keyboard.KeyboardPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : Activity() {
 
@@ -114,11 +118,20 @@ class MainActivity : Activity() {
             showCorrectionsDialog()
         })
 
-        // 5. Testar digitação (atalho rápido para testar a velocidade e símbolos)
+        // 5. Verificar atualizações (varredura via GitHub Releases)
+        listContainer.addView(createSettingsItem(
+            iconRes = R.drawable.ic_settings_update,
+            title = "Verificar atualizações",
+            subtitle = "Versão instalada: v${BuildConfig.VERSION_NAME} • Toque para verificar"
+        ) {
+            checkAppUpdates()
+        })
+
+        // 6. Testar digitação (atalho rápido para testar a velocidade e símbolos)
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_keyboard,
             title = "Testar teclado",
-            subtitle = "Experimente a digitação rápida e seleção de símbolos"
+            subtitle = "Experimente a digitação instantânea e seleção de símbolos"
         ) {
             showTestKeyboardDialog()
         })
@@ -357,6 +370,62 @@ class MainActivity : Activity() {
         imm.showSoftInput(editTest, InputMethodManager.SHOW_IMPLICIT)
     }
 
+    private fun checkAppUpdates() {
+        val progressDialog = AlertDialog.Builder(this)
+            .setTitle("Verificando Atualizações")
+            .setMessage("Consultando GitHub Releases...")
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val result = UpdateChecker.checkForUpdates()
+            progressDialog.dismiss()
+
+            when (result) {
+                is UpdateChecker.UpdateResult.UpToDate -> {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Aplicativo Atualizado 🎉")
+                        .setMessage("Você já está usando a versão mais recente (v${result.currentVersion})!\n\nSeu teclado conta com digitação instantânea e todas as otimizações.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+                is UpdateChecker.UpdateResult.NewVersion -> {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Nova Versão Disponível: v${result.latestVersion} 🚀")
+                        .setMessage("Versão atual instalada: v${result.currentVersion}\nVersão mais recente: v${result.latestVersion}\n\nNovidades:\n${result.releaseNotes}")
+                        .setPositiveButton("Baixar Atualização (APK)") { _, _ ->
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl))
+                                startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .setNeutralButton("Ver no GitHub") { _, _ ->
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.htmlUrl))
+                                startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("Depois", null)
+                        .show()
+                }
+                is UpdateChecker.UpdateResult.Error -> {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Status das Atualizações")
+                        .setMessage("Versão instalada: v${BuildConfig.VERSION_NAME}\n\nNão foi possível consultar as releases automaticamente do GitHub (${result.message}).")
+                        .setPositiveButton("Abrir GitHub no Navegador") { _, _ ->
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kirakillerdeathsquad/teclado-pt-br/releases"))
+                                startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("Fechar", null)
+                        .show()
+                }
+            }
+        }
+    }
+
     private fun showDictionaryDialog() {
         AlertDialog.Builder(this)
             .setTitle("Dicionário Offline")
@@ -368,7 +437,7 @@ class MainActivity : Activity() {
     private fun showPrivacyDialog() {
         AlertDialog.Builder(this)
             .setTitle("Privacidade e Segurança")
-            .setMessage("100% Offline por Design\n\n• O aplicativo NÃO possui permissão de internet (android.permission.INTERNET sequer existe no AndroidManifest.xml).\n• Não envia dados para a nuvem.\n• Sem telemetria, sem anúncios e sem rastreadores.")
+            .setMessage("100% Seguro por Design\n\n• O serviço do teclado e a digitação são 100% OFFLINE e nunca se comunicam com a rede.\n• A permissão de rede é restrita exclusivamente à checagem manual de atualizações do GitHub Releases na tela de configurações quando você toca no botão.\n• Sem telemetria, sem anúncios e sem rastreadores.")
             .setPositiveButton("Entendido", null)
             .show()
     }
@@ -376,7 +445,7 @@ class MainActivity : Activity() {
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
             .setTitle("Sobre o Teclado PT-BR")
-            .setMessage("Teclado Leve PT-BR v1.0\n\n• Desenvolvido para celulares com menos de 900 MB de RAM e 16 GB de armazenamento interno.\n• Consumo PSS real inferior a 10 MB de RAM.\n• Núcleo nativo em Rust compilado com cargo-ndk.\n• Compatível com Android 8.0 (API 26) ou superior.")
+            .setMessage("Teclado Leve PT-BR v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})\n\n• Digitação instantânea no toque (0ms de latência percebida).\n• Desenvolvido para celulares com menos de 900 MB de RAM e 16 GB de armazenamento interno.\n• Consumo PSS real inferior a 10 MB de RAM.\n• Núcleo nativo em Rust compilado com cargo-ndk.\n• Compatível com Android 8.0 (API 26) ou superior.")
             .setPositiveButton("Fechar", null)
             .show()
     }
