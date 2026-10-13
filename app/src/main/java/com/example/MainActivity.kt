@@ -6,17 +6,18 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.net.Uri
 import android.widget.Switch
 import android.widget.TextView
 import com.example.keyboard.KeyboardPreferences
@@ -28,8 +29,9 @@ class MainActivity : Activity() {
 
     private lateinit var prefs: KeyboardPreferences
     private val density by lazy { resources.displayMetrics.density }
-
     private fun dp(value: Int) = (value * density).toInt()
+
+    private lateinit var statusContainer: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,17 +39,18 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212")) // Fundo escuro como no Gboard
+            setBackgroundColor(Color.parseColor("#121212")) // Fundo escuro com alto contraste
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
 
-        // Top App Bar no estilo exato do Gboard
+        // Barra superior de configurações
         val appBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#181A1F"))
             setPadding(dp(12), dp(16), dp(16), dp(16))
         }
 
@@ -63,30 +66,50 @@ class MainActivity : Activity() {
         appBar.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Configurações do Teclado"
+            text = "Configurações"
             textSize = 21f
             setTextColor(Color.parseColor("#F4F4F5"))
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setPadding(dp(12), 0, 0, 0)
         }
         appBar.addView(headerTitle)
         root.addView(appBar)
 
-        // Lista de opções rolável
+        // Lista rolável de opções e cartões de ativação
         val scrollView = ScrollView(this).apply {
             isFillViewport = true
         }
 
         val listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(4), 0, dp(32))
+            setPadding(0, dp(12), 0, dp(32))
         }
+
+        // Área de status e ativação rápida do teclado
+        statusContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), 0, dp(16), dp(12))
+        }
+        listContainer.addView(statusContainer)
+
+        // Campo de teste rápido integrado para testar digitação e seleção de símbolos
+        val testCard = createTestInputCard()
+        listContainer.addView(testCard)
+
+        // Linha divisória sutil
+        val divider1 = View(this).apply {
+            setBackgroundColor(Color.parseColor("#27272A"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                setMargins(0, dp(12), 0, dp(6))
+            }
+        }
+        listContainer.addView(divider1)
 
         // 1. Idiomas
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_language,
             title = "Idiomas",
-            subtitle = "Português (Brasil) (QWERTY)"
+            subtitle = "Português (Brasil) (QWERTY com tecla 'ç')"
         ) {
             showLanguageDialog()
         })
@@ -104,36 +127,27 @@ class MainActivity : Activity() {
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_theme,
             title = "Tema",
-            subtitle = "Escuro dinâmico (baixo consumo de energia)"
+            subtitle = "Grafite e Cobalto (otimizado para bateria OLED/LCD)"
         ) {
             showThemeDialog()
         })
 
-        // 4. Correções e sugestões
+        // 4. Correção de texto
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_correction,
-            title = "Correções e sugestões",
-            subtitle = "Autocorreção conservadora, sugestões contextuais"
+            title = "Correção de texto",
+            subtitle = "Autocorreção conservadora, restauração de acentos"
         ) {
             showCorrectionsDialog()
         })
 
-        // 5. Verificar atualizações (varredura via GitHub Releases)
-        listContainer.addView(createSettingsItem(
-            iconRes = R.drawable.ic_settings_update,
-            title = "Verificar atualizações",
-            subtitle = "Versão instalada: v${BuildConfig.VERSION_NAME} • Toque para verificar"
-        ) {
-            checkAppUpdates()
-        })
-
-        // 6. Testar digitação (atalho rápido para testar a velocidade e símbolos)
+        // 5. Símbolos e Layout
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_keyboard,
-            title = "Testar teclado",
-            subtitle = "Experimente a digitação instantânea e seleção de símbolos"
+            title = "Símbolos e Layout",
+            subtitle = "Linha de números dedicada, tecla ?123 e atalhos rápidos"
         ) {
-            showTestKeyboardDialog()
+            showSymbolsDialog()
         })
 
         // 6. Dicionário
@@ -145,28 +159,182 @@ class MainActivity : Activity() {
             showDictionaryDialog()
         })
 
-        // 7. Privacidade
+        // 7. Verificar atualizações
+        listContainer.addView(createSettingsItem(
+            iconRes = R.drawable.ic_settings_update,
+            title = "Verificar atualizações",
+            subtitle = "Versão instalada: v${BuildConfig.VERSION_NAME} • Varredura no GitHub"
+        ) {
+            checkAppUpdates(showFeedbackIfLatest = true)
+        })
+
+        // 8. Privacidade
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_privacy,
-            title = "Privacidade",
-            subtitle = "100% offline • Sem acesso à internet ou coleta"
+            title = "Privacidade e Segurança",
+            subtitle = "100% offline • Sem coleta de dados ou histórico"
         ) {
             showPrivacyDialog()
         })
 
-        // 8. Sobre
+        // 9. Sobre
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_info,
             title = "Sobre",
-            subtitle = "Teclado PT-BR v1.0 • Otimizado para RAM < 900 MB"
+            subtitle = "Teclado Leve PT-BR v${BuildConfig.VERSION_NAME} • RAM < 10 MB"
         ) {
             showAboutDialog()
         })
 
         scrollView.addView(listContainer)
         root.addView(scrollView)
-
         setContentView(root)
+
+        // Busca automática silenciosa por novas atualizações no GitHub Releases
+        CoroutineScope(Dispatchers.Main).launch {
+            checkAppUpdates(showFeedbackIfLatest = false)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateActivationStatusCard()
+    }
+
+    private fun updateActivationStatusCard() {
+        statusContainer.removeAllViews()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
+        val currentIme = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+        val isSelected = currentIme != null && currentIme.contains(packageName)
+
+        if (!isEnabled) {
+            // Cartão de Ativação Passo 1
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#1F242C"))
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val title = TextView(this).apply {
+                text = "Etapa 1: Ativar nos métodos de entrada"
+                setTextColor(Color.parseColor("#F4F4F5"))
+                textSize = 15.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val desc = TextView(this).apply {
+                text = "Habilite o Teclado Leve PT-BR para poder usá-lo em qualquer aplicativo."
+                setTextColor(Color.parseColor("#94A3B8"))
+                textSize = 13f
+                setPadding(0, dp(4), 0, dp(10))
+            }
+            val btn = Button(this).apply {
+                text = "Ativar nas Configurações"
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#3B82F6"))
+                setOnClickListener {
+                    startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                }
+            }
+            card.addView(title)
+            card.addView(desc)
+            card.addView(btn)
+            statusContainer.addView(card)
+        } else if (!isSelected) {
+            // Cartão de Seleção Passo 2
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#1F242C"))
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val title = TextView(this).apply {
+                text = "Etapa 2: Definir como teclado padrão"
+                setTextColor(Color.parseColor("#F4F4F5"))
+                textSize = 15.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val desc = TextView(this).apply {
+                text = "Selecione o Teclado Leve PT-BR como método de digitação principal."
+                setTextColor(Color.parseColor("#94A3B8"))
+                textSize = 13f
+                setPadding(0, dp(4), 0, dp(10))
+            }
+            val btn = Button(this).apply {
+                text = "Selecionar como Padrão"
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#10B981"))
+                setOnClickListener {
+                    imm.showInputMethodPicker()
+                }
+            }
+            card.addView(title)
+            card.addView(desc)
+            card.addView(btn)
+            statusContainer.addView(card)
+        } else {
+            // Cartão de Status Ativo
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundColor(Color.parseColor("#15231E"))
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val checkIcon = TextView(this).apply {
+                text = "✓"
+                setTextColor(Color.parseColor("#34D399"))
+                textSize = 18f
+                setPadding(0, 0, dp(12), 0)
+            }
+            val statusText = TextView(this).apply {
+                text = "Teclado Ativo e Padrão no Sistema"
+                setTextColor(Color.parseColor("#E2E8F0"))
+                textSize = 14f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            card.addView(checkIcon)
+            card.addView(statusText)
+            statusContainer.addView(card)
+        }
+    }
+
+    private fun createTestInputCard(): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#1B2028"))
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.setMargins(dp(16), 0, dp(16), 0)
+            layoutParams = params
+        }
+
+        val title = TextView(this).apply {
+            text = "Testar digitação e seleção de símbolos"
+            setTextColor(Color.parseColor("#F4F4F5"))
+            textSize = 14.5f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val desc = TextView(this).apply {
+            text = "Toque abaixo para abrir o teclado, testar a velocidade e o botão ?123:"
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 12.5f
+            setPadding(0, dp(2), 0, dp(10))
+        }
+
+        val editTest = EditText(this).apply {
+            hint = "Digite rapidamente aqui..."
+            setHintTextColor(Color.parseColor("#64748B"))
+            setTextColor(Color.parseColor("#F4F4F5"))
+            setBackgroundColor(Color.parseColor("#262C36"))
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            textSize = 15f
+        }
+
+        card.addView(title)
+        card.addView(desc)
+        card.addView(editTest)
+        return card
     }
 
     private fun createSettingsItem(
@@ -178,7 +346,7 @@ class MainActivity : Activity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(16), dp(20), dp(16))
+            setPadding(dp(20), dp(14), dp(20), dp(14))
             isClickable = true
             isFocusable = true
             val typedValue = TypedValue()
@@ -189,7 +357,7 @@ class MainActivity : Activity() {
 
         val icon = ImageView(this).apply {
             setImageResource(iconRes)
-            setColorFilter(Color.parseColor("#E2E8F0"))
+            setColorFilter(Color.parseColor("#CBD5E1"))
             val iconSize = dp(24)
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                 marginEnd = dp(20)
@@ -212,7 +380,7 @@ class MainActivity : Activity() {
 
         val subtitleView = TextView(this).apply {
             text = subtitle
-            textSize = 13.5f
+            textSize = 13f
             setTextColor(Color.parseColor("#94A3B8"))
             setPadding(0, dp(3), 0, 0)
         }
@@ -224,20 +392,10 @@ class MainActivity : Activity() {
 
     private fun showLanguageDialog() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
-
-        val currentIme = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
-        val isSelected = currentIme != null && currentIme.contains(packageName)
-
-        val status = StringBuilder()
-        status.append("Layout: Português (Brasil) QWERTY\n\n")
-        status.append(if (isEnabled) "✓ Ativado nos métodos de entrada\n" else "✗ Não ativado nas configurações\n")
-        status.append(if (isSelected) "✓ Teclado atualmente selecionado e ativo\n" else "✗ Não é o teclado padrão atual\n")
-
         AlertDialog.Builder(this)
-            .setTitle("Idiomas e Ativação")
-            .setMessage(status.toString())
-            .setPositiveButton("Escolher como Ativo") { _, _ ->
+            .setTitle("Idiomas e Entrada")
+            .setMessage("Layout atual: Português (Brasil) (QWERTY)\n\n• Inclui linha numérica dedicada (1 a 0).\n• Tecla 'ç' visível diretamente na linha principal.\n• Acentos completos (á, à, â, ã, é, ê, í, ó, ô, õ, ú) no toque prolongado.")
+            .setPositiveButton("Alterar Teclado Ativo") { _, _ ->
                 imm.showInputMethodPicker()
             }
             .setNeutralButton("Configurações do Sistema") { _, _ ->
@@ -263,7 +421,7 @@ class MainActivity : Activity() {
             }
         }
         val vibrateSub = TextView(this).apply {
-            text = "Resposta tátil ao digitar (desligado por padrão para economizar bateria)."
+            text = "Resposta tátil no toque (desativado por padrão para economizar bateria)."
             setTextColor(Color.parseColor("#94A3B8"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(16))
@@ -281,7 +439,7 @@ class MainActivity : Activity() {
             }
         }
         val capSub = TextView(this).apply {
-            text = "Primeira letra em maiúscula no início de frases e após ponto final."
+            text = "Primeira letra em maiúscula no início de sentenças e após ponto final."
             setTextColor(Color.parseColor("#94A3B8"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(8))
@@ -299,7 +457,7 @@ class MainActivity : Activity() {
     private fun showThemeDialog() {
         AlertDialog.Builder(this)
             .setTitle("Tema do Teclado")
-            .setMessage("Tema Escuro Dinâmico de Alta Eficiência\n\n• Otimizado para telas OLED e LCD para reduzir consumo de bateria.\n• Teclas de alto contraste e layout QWERTY limpo com 'ç' visível e botão de símbolos ?123 em destaque.")
+            .setMessage("Tema Escuro Dinâmico de Alto Contraste\n\n• Fundo grafite profundo (#172227) e teclas bem definidas (#2A373E).\n• Consumo mínimo de energia em telas OLED e LCD.\n• Destaques em azul cobalto para melhor visibilidade e conforto visual.")
             .setPositiveButton("OK", null)
             .show()
     }
@@ -320,7 +478,7 @@ class MainActivity : Activity() {
             }
         }
         val autoCorrectSub = TextView(this).apply {
-            text = "Corrige apenas erros próximos de palavras reais. Pressionar Backspace logo após a correção desfaz a alteração imediatamente."
+            text = "Corrige apenas erros nítidos e restaura acentos seguros (ex: 'voce' → 'você', 'nao' → 'não'). Palavras válidas são sempre preservadas."
             setTextColor(Color.parseColor("#94A3B8"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(16))
@@ -329,67 +487,58 @@ class MainActivity : Activity() {
         container.addView(autoCorrectSub)
 
         AlertDialog.Builder(this)
-            .setTitle("Correções e Sugestões")
+            .setTitle("Correção de Texto")
             .setView(container)
             .setPositiveButton("Pronto", null)
             .show()
     }
 
-    private fun showTestKeyboardDialog() {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(16), dp(24), dp(16))
-        }
-
-        val hintText = TextView(this).apply {
-            text = "Digite rapidamente abaixo para testar a velocidade e a tecla ?123 de símbolos:"
-            setTextColor(Color.parseColor("#94A3B8"))
-            textSize = 14f
-            setPadding(0, 0, 0, dp(12))
-        }
-        container.addView(hintText)
-
-        val editTest = EditText(this).apply {
-            hint = "Experimente digitar aqui..."
-            setHintTextColor(Color.parseColor("#64748B"))
-            setTextColor(Color.parseColor("#F4F4F5"))
-            setBackgroundColor(Color.parseColor("#27272A"))
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            textSize = 16f
-        }
-        container.addView(editTest)
-
+    private fun showSymbolsDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Testar Digitação")
-            .setView(container)
-            .setPositiveButton("Concluir", null)
+            .setTitle("Símbolos e Layout")
+            .setMessage("Acesso Fácil aos Símbolos\n\n1. Tecla '?123' na linha inferior (canto esquerdo): alterna diretamente para os números e símbolos.\n2. Botão '?123' na barra de ferramentas superior: atalho rápido na barra de sugestões.\n3. Tecla '=\\<': abre mais símbolos matemáticos e especiais (moedas, colchetes, etc.).\n4. Toque longo no ponto (.): abre menu rápido com '!', '?', '@', '-', '_', '/'.")
+            .setPositiveButton("Entendido", null)
             .show()
-
-        editTest.requestFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(editTest, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    private fun checkAppUpdates() {
-        val progressDialog = AlertDialog.Builder(this)
-            .setTitle("Verificando Atualizações")
-            .setMessage("Consultando GitHub Releases...")
-            .setCancelable(false)
-            .create()
-        progressDialog.show()
+    private fun showDictionaryDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Dicionário Offline")
+            .setMessage("Dicionário de Alta Eficiência PT-BR\n\n• 100% offline e armazenado localmente no aplicativo.\n• Formato binário ultra-compacto indexado por buckets O(1).\n• Baseado no vocabulário oficial pt-BR do Projeto Vero (LGPLv3/MPL).\n• Carregamento instantâneo via Rust nativo / Kotlin puro.")
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showPrivacyDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Privacidade e Segurança")
+            .setMessage("100% Seguro e Offline\n\n• O serviço do teclado nunca acessa a internet nem grava histórico.\n• Nenhum texto digitado é registrado ou compartilhado.\n• A única funcionalidade que usa rede é a busca manual ou automática por atualizações do próprio app no GitHub Releases.")
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showAboutDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Sobre o Teclado PT-BR")
+            .setMessage("Teclado Leve PT-BR v${BuildConfig.VERSION_NAME}\n\n• Desenvolvido para celulares com menos de 1 GB de RAM e 16 GB de armazenamento.\n• Consumo PSS real < 10 MB de RAM.\n• Algoritmo de tolerância a toque rápido para 0ms de latência.\n• Compatível com Android 8.0 (API 26) ou superior.")
+            .setPositiveButton("Fechar", null)
+            .show()
+    }
+
+    private fun checkAppUpdates(showFeedbackIfLatest: Boolean) {
+        val progressDialog = if (showFeedbackIfLatest) {
+            AlertDialog.Builder(this)
+                .setTitle("Verificando Atualizações")
+                .setMessage("Consultando GitHub Releases...")
+                .setCancelable(false)
+                .create().apply { show() }
+        } else null
 
         CoroutineScope(Dispatchers.Main).launch {
             val result = UpdateChecker.checkForUpdates()
-            progressDialog.dismiss()
+            progressDialog?.dismiss()
 
             when (result) {
-                is UpdateChecker.UpdateResult.UpToDate -> {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Aplicativo Atualizado 🎉")
-                        .setMessage("Você já está usando a versão mais recente (v${result.currentVersion})!\n\nSeu teclado conta com digitação instantânea e todas as otimizações.")
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
                 is UpdateChecker.UpdateResult.NewVersion -> {
                     AlertDialog.Builder(this@MainActivity)
                         .setTitle("Nova Versão Disponível: v${result.latestVersion} 🚀")
@@ -409,44 +558,25 @@ class MainActivity : Activity() {
                         .setNegativeButton("Depois", null)
                         .show()
                 }
+                is UpdateChecker.UpdateResult.UpToDate -> {
+                    if (showFeedbackIfLatest) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Aplicativo Atualizado 🎉")
+                            .setMessage("Você já está na versão mais recente (v${result.currentVersion})!\n\nSeu teclado conta com digitação otimizada sem atrasos.")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
                 is UpdateChecker.UpdateResult.Error -> {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Status das Atualizações")
-                        .setMessage("Versão instalada: v${BuildConfig.VERSION_NAME}\n\nNão foi possível consultar as releases automaticamente do GitHub (${result.message}).")
-                        .setPositiveButton("Abrir GitHub no Navegador") { _, _ ->
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kirakillerdeathsquad/teclado-pt-br/releases"))
-                                startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                        .setNegativeButton("Fechar", null)
-                        .show()
+                    if (showFeedbackIfLatest) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Status das Atualizações")
+                            .setMessage("Versão instalada: v${BuildConfig.VERSION_NAME}\n\nStatus da consulta ao GitHub: ${result.message}")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                 }
             }
         }
-    }
-
-    private fun showDictionaryDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Dicionário Offline")
-            .setMessage("Vocabulário do Português do Brasil\n\n• Formato binário indexado ultra-compacto (~8.3 KB).\n• Vocabulário baseado no Projeto Vero (LGPLv3/MPL 1.1) e domínio público.\n• Carregamento instantâneo via mmap/buffer com consumo quase nulo de memória RAM.")
-            .setPositiveButton("OK", null)
-            .show()
-    }
-
-    private fun showPrivacyDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Privacidade e Segurança")
-            .setMessage("100% Seguro por Design\n\n• O serviço do teclado e a digitação são 100% OFFLINE e nunca se comunicam com a rede.\n• A permissão de rede é restrita exclusivamente à checagem manual de atualizações do GitHub Releases na tela de configurações quando você toca no botão.\n• Sem telemetria, sem anúncios e sem rastreadores.")
-            .setPositiveButton("Entendido", null)
-            .show()
-    }
-
-    private fun showAboutDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Sobre o Teclado PT-BR")
-            .setMessage("Teclado Leve PT-BR v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})\n\n• Digitação instantânea no toque (0ms de latência percebida).\n• Desenvolvido para celulares com menos de 900 MB de RAM e 16 GB de armazenamento interno.\n• Consumo PSS real inferior a 10 MB de RAM.\n• Núcleo nativo em Rust compilado com cargo-ndk.\n• Compatível com Android 8.0 (API 26) ou superior.")
-            .setPositiveButton("Fechar", null)
-            .show()
     }
 }

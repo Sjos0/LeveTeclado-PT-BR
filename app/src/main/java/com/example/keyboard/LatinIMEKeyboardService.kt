@@ -33,12 +33,19 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     override fun onCreateInputView(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(android.graphics.Color.parseColor("#172227"))
+            setBackgroundColor(android.graphics.Color.parseColor("#263238"))
         }
 
         candidateView = CandidateView(this).apply {
             onSuggestionClickListener = { chosen ->
                 commitSuggestion(chosen)
+            }
+            onSymbolsClickListener = {
+                keyboardView.keyboardMode = if (keyboardView.keyboardMode == KeyboardView.MODE_TEXT) {
+                    KeyboardView.MODE_SYMBOLS
+                } else {
+                    KeyboardView.MODE_TEXT
+                }
             }
             onSettingsClickListener = {
                 try {
@@ -47,6 +54,26 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
                     }
                     startActivity(intent)
                 } catch (_: Exception) {}
+            }
+            onEmojiClickListener = {
+                commitComposingText()
+                currentInputConnection?.commitText("😊", 1)
+            }
+            onPasteClickListener = {
+                try {
+                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    val clip = clipboard?.primaryClip
+                    if (clip != null && clip.itemCount > 0) {
+                        val pasteText = clip.getItemAt(0).text?.toString()
+                        if (!pasteText.isNullOrEmpty()) {
+                            commitComposingText()
+                            currentInputConnection?.commitText(pasteText, 1)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+            onSearchClickListener = {
+                onActionKey()
             }
         }
 

@@ -1,0 +1,6 @@
+# Lista de exclusão de nomes próprios e estrangeirismos que nunca devem sofrer autocorreção
+francois
+françois
+roma
+victor
+max

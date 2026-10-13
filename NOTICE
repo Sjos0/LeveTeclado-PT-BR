@@ -1,0 +1,18 @@
+Teclado Leve PT-BR
+Copyright (c) 2026 Sjos0
+
+Este aplicativo incorpora e utiliza dados das seguintes fontes sob suas respectivas licenças:
+
+1. Projeto VERO (Vocabulário Ortográfico Livre do Português do Brasil)
+   - Arquivos: pt_BR.dic e pt_BR.aff
+   - Mantenedores: Raimundo Santos Moura e Comunidade LibreOffice
+   - Licença: GNU Lesser General Public License (LGPL v3.0) e Mozilla Public License (MPL 1.1)
+   - Website: https://pt-br.libreoffice.org/projetos/vero/
+
+2. FrequencyWords - OpenSubtitles 2018 (Português do Brasil)
+   - Repositório: hermitdave/FrequencyWords (content/2018/pt_br)
+   - Mantenedor: Hermit Dave
+   - Licença: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+   - Website: https://github.com/hermitdave/FrequencyWords
+
+O dicionário binário consolidado (dict_pt_br.bin) gerado a partir dessas fontes é distribuído sob os termos da licença Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0), preservando todos os direitos e avisos de licença das obras originais.

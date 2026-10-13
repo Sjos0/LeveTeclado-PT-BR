@@ -12,6 +12,7 @@ class CompactTrieEngine(bytes: ByteArray) {
     data class Unigram(val exact: String, val norm: String, val freq: Int)
 
     private val unigrams = mutableListOf<Unigram>()
+    private val topFrequencyUnigrams = mutableListOf<String>()
     // Indexação por primeiro caractere para pesquisa instantânea (< 5 microsegundos)
     private val buckets = HashMap<Char, MutableList<Unigram>>()
     private val bigramsByPrev = mutableMapOf<String, MutableList<Pair<String, Int>>>()
@@ -19,6 +20,9 @@ class CompactTrieEngine(bytes: ByteArray) {
 
     init {
         parseBinary(bytes)
+        topFrequencyUnigrams.addAll(
+            unigrams.sortedByDescending { it.freq }.take(3).map { it.exact }
+        )
     }
 
     private fun parseBinary(bytes: ByteArray) {
@@ -89,7 +93,7 @@ class CompactTrieEngine(bytes: ByteArray) {
                     return list.sortedByDescending { it.second }.map { it.first }.take(3)
                 }
             }
-            return unigrams.take(3).map { it.exact }
+            return topFrequencyUnigrams
         }
 
         val prefixNorm = normalize(cleanPrefix)
@@ -135,33 +139,59 @@ class CompactTrieEngine(bytes: ByteArray) {
         return result
     }
 
+    private val stoplist = setOf(
+        "francois", "françois", "roma", "victor", "max",
+        "ai", "esta", "festa", "algo", "calor", "ainda", "todo", "toda", "todos", "todas",
+        "pois", "malha", "abraço", "abraços", "pra", "tbm", "vc", "pq", "blz", "bjs", "kkk", "kkkk",
+        "avó", "avô", "está", "pode", "pôde", "vem", "vêm", "por", "pôr", "de", "que", "não",
+        "bebe", "bebê", "pais", "país", "nós", "robôs", "vocês", "pés"
+    )
+
     fun getAutoCorrection(prevWord: String, typedWord: String): String? {
         val clean = typedWord.trim()
         if (clean.length < 3) return null
 
         val typedLower = clean.lowercase()
+
+        // 0. Proteção: Stoplist e palavras que NUNCA devem ser alteradas
+        if (stoplist.contains(typedLower)) return null
+
+        // Se já for uma palavra válida exatamente no dicionário, NÃO corrige!
         if (isWord(typedLower)) return null
+
+        // Palavras com até 4 letras nunca são corrigidas por distância de edição (apenas acento inequívoco)
+        val isShortWord = clean.length <= 4
 
         val typedNorm = normalize(clean)
         val firstChar = typedNorm[0]
         val candidateList = buckets[firstChar] ?: return null
 
-        // 1. Correção rápida de acento no bucket
-        for (u in candidateList) {
-            if (u.norm == typedNorm) {
-                return u.exact
+        // 1. Correção de acento: se digitou sem acento (ex: 'nao' -> 'não', 'voce' -> 'você', 'ate' -> 'até')
+        val accentCandidates = candidateList.filter { it.norm == typedNorm }
+        if (accentCandidates.size == 1) {
+            val candidate = accentCandidates[0]
+            // Apenas se a forma candidata for substancialmente frequente
+            if (candidate.freq >= 12000) {
+                return candidate.exact
             }
+        } else if (accentCandidates.size > 1) {
+            // Ambiguidade (ex: 'po' -> pó/pô, 'vo' -> vó/vô): NUNCA substitui automaticamente no espaço!
+            return null
         }
 
-        // 2. Distância de edição conservadora (distância 1 e alta frequência)
+        // Se for palavra curta (<= 4 letras), regra geral: NUNCA corrige por distância de edição
+        if (isShortWord) return null
+
+        // 2. Distância de edição conservadora (apenas para palavras >= 5 letras, distância 1 e alta frequência)
         val prevNorm = normalize(prevWord.trim())
         var bestCandidate: Pair<String, Int>? = null
 
         for (u in candidateList) {
             if (kotlin.math.abs(typedNorm.length - u.norm.length) > 1) continue
+            if (stoplist.contains(u.exact.lowercase())) continue
 
             val dist = levenshtein(typedNorm, u.norm)
-            if (dist == 1 && u.freq >= 15000) {
+            if (dist == 1 && u.freq >= 20000) { // Limiar elevado para evitar falsos positivos
                 var score = u.freq
                 if (prevNorm.isNotEmpty()) {
                     val list = bigramsByPrev[prevNorm]

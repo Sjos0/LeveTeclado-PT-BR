@@ -1,0 +1,34 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Fundo arredondado grafite escuro #1C1F24 -->
+    <path
+        android:fillColor="#1C1F24"
+        android:pathData="M16,8h64c4.4,0 8,3.6 8,8v64c0,4.4 -3.6,8 -8,8H16c-4.4,0 -8,-3.6 -8,-8V16c0,-4.4 3.6,-8 8,-8z"/>
+    <!-- Corpo do teclado #2A2F37 com borda #7A8496 -->
+    <path
+        android:fillColor="#2A2F37"
+        android:strokeColor="#7A8496"
+        android:strokeWidth="2"
+        android:pathData="M18,24h60c3.3,0 6,2.7 6,6v36c0,3.3 -2.7,6 -6,6H18c-3.3,0 -6,-2.7 -6,-6V30c0,-3.3 2.7,-6 6,-6z"/>
+    <!-- Teclas superiores -->
+    <path
+        android:fillColor="#F2F4F7"
+        android:pathData="M24,34h8v6h-8zM36,34h8v6h-8zM48,34h8v6h-8zM60,34h8v6h-8zM72,34h4v6h-4z"/>
+    <!-- Teclas médias -->
+    <path
+        android:fillColor="#F2F4F7"
+        android:pathData="M24,44h8v6h-8zM36,44h8v6h-8zM48,44h8v6h-8zM60,44h8v6h-8zM72,44h4v6h-4z"/>
+    <!-- Teclas inferiores com destaque azul cobalto #3D6BE0 na barra e enter -->
+    <path
+        android:fillColor="#B8C0CC"
+        android:pathData="M24,54h10v6h-10z"/>
+    <path
+        android:fillColor="#3D6BE0"
+        android:pathData="M38,54h24v6h-24z"/>
+    <path
+        android:fillColor="#3D6BE0"
+        android:pathData="M66,54h10v6h-10z"/>
+</vector>

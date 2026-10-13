@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissão de vibração para feedback tátil opcional nas teclas. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Permissão de internet utilizada estritamente pelo verificador de atualizações do GitHub. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Permissão para solicitar instalação de pacotes atualizados via instalador do sistema. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -15,6 +18,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
+        <!-- Remove o receiver transitivo da biblioteca androidx.profileinstaller e elimina a permissão DUMP -->
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            tools:node="remove" />
 
         <!-- Atividade de Configuração e Teste do Teclado -->
         <activity
@@ -42,6 +50,17 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <!-- FileProvider para instalação segura de APKs baixados -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

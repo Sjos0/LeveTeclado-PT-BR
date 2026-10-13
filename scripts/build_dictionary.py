@@ -138,6 +138,17 @@ HIGH_FREQ_WORDS = [
     ("logo", 18000), ("então", 20000), ("assim", 19500), ("talvez", 17000), ("quase", 17500),
     ("apenas", 18000), ("somente", 16000), ("bastante", 16500), ("demais", 16000),
     ("pouco", 17500), ("poucos", 15500), ("muitos", 16500), ("muitas", 16000),
+
+    # Palavras de R2 e do vocabulário essencial (preservar sem alteração indevida)
+    ("esta", 38000), ("festa", 16000), ("algo", 28000), ("calor", 17000),
+    ("ainda", 36000), ("todo", 31000), ("toda", 30000), ("todos", 30000), ("todas", 29000),
+    ("pois", 27000), ("malha", 12000), ("abraços", 15000), ("pra", 35000),
+    ("tbm", 25000), ("vc", 25000), ("pq", 25000), ("blz", 20000), ("bjs", 18000),
+    ("avó", 16000), ("avô", 16000), ("pôde", 18000), ("vem", 24000),
+    ("pôr", 17000), ("robôs", 13000), ("pés", 15000), ("bebe", 16000),
+    ("bebê", 17000), ("pais", 22000), ("construí", 14000), ("caíram", 14000),
+    ("põe", 18000), ("alguém", 24000), ("cão", 16000), ("razão", 20000),
+    ("violência", 17000), ("sábado", 18000), ("domingo", 18000), ("segunda", 17000),
     ("todos", 20000), ("todas", 18500), ("outro", 18500), ("outra", 18000),
     ("outros", 17500), ("outras", 17000), ("cada", 17500), ("algum", 16500),
     ("alguma", 16000), ("alguns", 15500), ("nenhum", 15500), ("nenhuma", 15000),

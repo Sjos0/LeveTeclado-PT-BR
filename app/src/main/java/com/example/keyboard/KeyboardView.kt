@@ -13,8 +13,10 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 
 class KeyboardView @JvmOverloads constructor(
     context: Context,
@@ -80,24 +82,28 @@ class KeyboardView @JvmOverloads constructor(
 
     private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-    // Paleta exata do Gboard Dark (Teal-tinted Charcoal)
+    // Paleta de cores oficial baseada na referência (fundo #263238, tecla #404A50, função #313C42, emoji border #7FCFFF)
     private val backgroundPaint = Paint().apply {
-        color = Color.parseColor("#172227") // Fundo escuro azul-petróleo do Gboard
+        color = Color.parseColor("#263238")
     }
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2A373E") // Teclas normais com tom suave
+        color = Color.parseColor("#404A50")
         style = Paint.Style.FILL
     }
     private val specialKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1F2A30") // Teclas funcionais (?123, Shift, Backspace)
+        color = Color.parseColor("#313C42")
+        style = Paint.Style.FILL
+    }
+    private val symbolKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#313C42")
         style = Paint.Style.FILL
     }
     private val pressedKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#3B4B53") // Feedback visual de tecla pressionada
+        color = Color.parseColor("#546068")
         style = Paint.Style.FILL
     }
     private val actionKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#50B4CE") // Tom ciano/azul vibrante do botão de ação
+        color = Color.parseColor("#50B4CE")
         style = Paint.Style.FILL
     }
     private val actionPressedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -105,17 +111,17 @@ class KeyboardView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val emojiBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#50B4CE") // Borda de destaque azul na tecla de emoji como no print
+        color = Color.parseColor("#7FCFFF")
         style = Paint.Style.STROKE
         strokeWidth = 3.5f
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#F1F5F7")
+        color = Color.parseColor("#FFFFFF")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
     private val specialTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0EBF0")
+        color = Color.parseColor("#FFFFFF")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
@@ -131,10 +137,14 @@ class KeyboardView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val popupBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#121A1E")
+        color = Color.parseColor("#1B2327")
         style = Paint.Style.FILL
         setShadowLayer(16f, 0f, 8f, Color.parseColor("#90000000"))
     }
+
+    // Objetos reutilizáveis para desenho (Zero Garbage Collection para digitação contínua)
+    private val tempRect = RectF()
+    private val tempPath = Path()
 
     data class Key(
         val code: Int,
@@ -153,13 +163,15 @@ class KeyboardView @JvmOverloads constructor(
         var key: Key,
         var startX: Float,
         var startY: Float,
-        var isLongPressTriggered: Boolean = false,
-        var dispatchedChar: String? = null
+        var isLongPressTriggered: Boolean = false
     )
 
     private val activePointers = HashMap<Int, PointerInfo>()
+    // R1: Rastreamento para debounce e prevenção de toque duplo indevido
+    private val activeByKey = HashMap<Key, Int>()
+    private val lastAcceptedMs = HashMap<Key, Long>()
 
-    // Popup de acentos e emojis
+    // Popup de acentos e caracteres secundários
     private var popupActive = false
     private var popupKey: Key? = null
     private val popupRects = ArrayList<Pair<String, RectF>>()
@@ -171,13 +183,14 @@ class KeyboardView @JvmOverloads constructor(
     private val backspaceRunnable = object : Runnable {
         override fun run() {
             listener?.onBackspace()
-            asyncVibrate()
+            triggerKeyVibration()
             backspaceDelay = (backspaceDelay * 0.82).toLong().coerceAtLeast(25L)
             handler.postDelayed(this, backspaceDelay)
         }
     }
 
     private var pendingLongPressPointerId: Int = -1
+    private val longPressDelay = (ViewConfiguration.getLongPressTimeout() * 0.9).toLong().coerceAtLeast(420L)
     private val longPressRunnable = Runnable {
         val info = activePointers[pendingLongPressPointerId]
         if (info != null && info.key.accents.isNotEmpty()) {
@@ -187,20 +200,22 @@ class KeyboardView @JvmOverloads constructor(
             popupPointerId = pendingLongPressPointerId
             selectedPopupIndex = -1
             calculatePopupLayout(info.key)
-            asyncVibrate()
+            triggerKeyVibration()
             invalidate()
         }
     }
 
-    private fun asyncVibrate() {
-        if (!vibrateEnabled || vibrator == null) return
-        handler.post {
+    private fun triggerKeyVibration() {
+        if (!vibrateEnabled) return
+        try {
+            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        } catch (_: Exception) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
+                    vibrator?.vibrate(VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE))
                 } else {
                     @Suppress("DEPRECATION")
-                    vibrator.vibrate(12)
+                    vibrator?.vibrate(10)
                 }
             } catch (_: Exception) {}
         }
@@ -209,7 +224,7 @@ class KeyboardView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val density = resources.displayMetrics.density
-        // 5 linhas com proporção ergonômica idêntica ao print do Gboard
+        // 5 linhas com proporção ergonômica ideal para digitação rápida
         val height = (255 * density).toInt()
         setMeasuredDimension(width, height)
     }
@@ -235,10 +250,10 @@ class KeyboardView @JvmOverloads constructor(
         keys.clear()
         val w = width.toFloat()
         val h = height.toFloat()
-        if (w <= 0 || h <= 0) return
-
-        val paddingH = 4.5f
-        val paddingV = 6f
+        val density = resources.displayMetrics.density
+        // R4 e R5: Geometria em dp proporcional à referência (4 dp de vão horizontal, 6.5 dp vertical)
+        val paddingH = 4f * density
+        val paddingV = 6.5f * density
         val rows = when (keyboardMode) {
             MODE_TEXT -> getTextRows()
             MODE_SYMBOLS -> getSymbolRows()
@@ -275,7 +290,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun getTextRows(): List<List<Key>> {
-        // Linha 1: Linha de Números dedicada (idêntica ao print)
+        // Linha 1: Linha de Números dedicada
         val row1 = listOf(
             Key('1'.code, "1"), Key('2'.code, "2"), Key('3'.code, "3"), Key('4'.code, "4"),
             Key('5'.code, "5"), Key('6'.code, "6"), Key('7'.code, "7"), Key('8'.code, "8"),
@@ -296,7 +311,7 @@ class KeyboardView @JvmOverloads constructor(
             Key('p'.code, "p")
         )
 
-        // Linha 3: a s d f g h j k l ç (10 teclas perfeitamente alinhadas com as linhas 1 e 2)
+        // Linha 3: a s d f g h j k l ç (10 teclas alinhadas perfeitamente com tecla 'ç')
         val row3 = listOf(
             Key('a'.code, "a", accents = listOf("á", "à", "â", "ã", "ä")),
             Key('s'.code, "s", accents = listOf("ß")),
@@ -323,7 +338,7 @@ class KeyboardView @JvmOverloads constructor(
             Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
 
-        // Linha 5: ?123, , , Emoji com borda azul, Espaço, ., Botão de Ação ciano (exato do print)
+        // Linha 5: Botão de Símbolos ?123, vírgula, Emoji, Espaço, ponto, Ação
         val row5 = listOf(
             Key(CODE_MODE_CHANGE, "?123", widthWeight = 1.35f, isSpecial = true),
             Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
@@ -337,27 +352,32 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun getSymbolRows(): List<List<Key>> {
+        // Linha 1: Números
         val row1 = listOf(
             Key('1'.code, "1"), Key('2'.code, "2"), Key('3'.code, "3"), Key('4'.code, "4"),
             Key('5'.code, "5"), Key('6'.code, "6"), Key('7'.code, "7"), Key('8'.code, "8"),
             Key('9'.code, "9"), Key('0'.code, "0")
         )
+        // Linha 2: Símbolos primários
         val row2 = listOf(
             Key('@'.code, "@"), Key('#'.code, "#"), Key('$'.code, "$", accents = listOf("R$", "€", "£")),
             Key('%'.code, "%"), Key('&'.code, "&"), Key('-'.code, "-"), Key('+'.code, "+"),
             Key('('.code, "("), Key(')'.code, ")"), Key('/'.code, "/")
         )
+        // Linha 3: Pontuação e aspas
         val row3 = listOf(
             Key('*'.code, "*"), Key('"'.code, "\""), Key('\''.code, "'"), Key(':'.code, ":"),
             Key(';'.code, ";"), Key('!'.code, "!"), Key('?'.code, "?"), Key('['.code, "["),
             Key(']'.code, "]"), Key('\\'.code, "\\")
         )
+        // Linha 4: Botão =\< (Acessar Mais Símbolos) e outros
         val row4 = listOf(
             Key(CODE_MORE_SYMBOLS, "=\\<", widthWeight = 1.45f, isSpecial = true),
             Key('~'.code, "~"), Key('`'.code, "`"), Key('<'.code, "<"), Key('>'.code, ">"),
             Key('='.code, "="), Key('_'.code, "_"), Key('|'.code, "|"),
             Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
+        // Linha 5: Botão ABC (retornar instantaneamente às letras)
         val row5 = listOf(
             Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.35f, isSpecial = true),
             Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
@@ -385,12 +405,14 @@ class KeyboardView @JvmOverloads constructor(
             Key('€'.code, "€"), Key('¥'.code, "¥"), Key('©'.code, "©"), Key('®'.code, "®"),
             Key('™'.code, "™"), Key('±'.code, "±")
         )
+        // Linha 4: Botão ?123 para voltar aos símbolos anteriores
         val row4 = listOf(
             Key(CODE_MORE_SYMBOLS, "?123", widthWeight = 1.45f, isSpecial = true),
             Key('<'.code, "<"), Key('>'.code, ">"), Key('{'.code, "{"), Key('}'.code, "}"),
             Key('='.code, "="), Key('_'.code, "_"), Key('‰'.code, "‰"),
             Key(CODE_BACKSPACE, "⌫", widthWeight = 1.45f, isSpecial = true)
         )
+        // Linha 5: Botão ABC para voltar às letras
         val row5 = listOf(
             Key(CODE_MODE_CHANGE, "ABC", widthWeight = 1.35f, isSpecial = true),
             Key(','.code, ",", widthWeight = 1.0f, isSpecial = true),
@@ -406,7 +428,8 @@ class KeyboardView @JvmOverloads constructor(
         super.onDraw(canvas)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
 
-        val cornerRadius = 16f
+        val density = resources.displayMetrics.density
+        val cornerRadius = 8f * density
 
         for (i in keys.indices) {
             val key = keys[i]
@@ -415,16 +438,17 @@ class KeyboardView @JvmOverloads constructor(
             val paint = when {
                 key.isAction -> if (isPressed) actionPressedPaint else actionKeyPaint
                 isPressed && !popupActive -> pressedKeyPaint
+                key.code == CODE_MODE_CHANGE -> symbolKeyPaint
                 key.isSpecial -> specialKeyPaint
                 else -> keyPaint
             }
 
             canvas.drawRoundRect(key.rect, cornerRadius, cornerRadius, paint)
 
-            // Borda azul ao redor da tecla de emoji (exato do screenshot de referência)
+            // Destaque visual na tecla de emoji
             if (key.isEmoji) {
-                val insetRect = RectF(key.rect.left + 3f, key.rect.top + 3f, key.rect.right - 3f, key.rect.bottom - 3f)
-                canvas.drawRoundRect(insetRect, cornerRadius - 2f, cornerRadius - 2f, emojiBorderPaint)
+                tempRect.set(key.rect.left + 3f, key.rect.top + 3f, key.rect.right - 3f, key.rect.bottom - 3f)
+                canvas.drawRoundRect(tempRect, cornerRadius - 2f, cornerRadius - 2f, emojiBorderPaint)
             }
 
             // Renderização do conteúdo de cada tecla
@@ -434,14 +458,14 @@ class KeyboardView @JvmOverloads constructor(
                 CODE_ENTER -> drawActionIcon(canvas, key.rect)
                 CODE_EMOJI -> drawEmojiIcon(canvas, key.rect)
                 CODE_SPACE -> {
-                    // Barra de espaço limpa sem texto ou com texto translúcido sutil
+                    // Barra de espaço limpa
                 }
                 else -> {
                     val isSpecialText = key.isSpecial || key.label.length > 1
                     val fontPaint = if (isSpecialText) specialTextPaint else textPaint
 
                     fontPaint.textSize = when {
-                        key.label.length > 2 -> key.rect.height() * 0.30f
+                        key.label.length > 2 -> key.rect.height() * 0.32f
                         else -> key.rect.height() * 0.44f
                     }
 
@@ -470,55 +494,54 @@ class KeyboardView @JvmOverloads constructor(
         val size = rect.height() * 0.22f
 
         val color = when (shiftState) {
-            SHIFT_LOCKED -> Color.parseColor("#50B4CE") // Azul-ciano quando Caps Lock está travado
-            SHIFT_ON -> Color.WHITE // Branco sólido quando ativo para 1 letra
-            else -> Color.parseColor("#9DB1BC") // Cinza suave quando inativo
+            SHIFT_LOCKED -> Color.parseColor("#50B4CE")
+            SHIFT_ON -> Color.WHITE
+            else -> Color.parseColor("#9DB1BC")
         }
 
         iconPaint.color = color
         iconFillPaint.color = color
 
-        val path = Path().apply {
-            moveTo(cx, cy - size)
-            lineTo(cx - size, cy + (size * 0.2f))
-            lineTo(cx - (size * 0.4f), cy + (size * 0.2f))
-            lineTo(cx - (size * 0.4f), cy + size)
-            lineTo(cx + (size * 0.4f), cy + size)
-            lineTo(cx + (size * 0.4f), cy + (size * 0.2f))
-            lineTo(cx + size, cy + (size * 0.2f))
-            close()
-        }
+        tempPath.reset()
+        tempPath.moveTo(cx, cy - size)
+        tempPath.lineTo(cx + size, cy + (size * 0.2f))
+        tempPath.lineTo(cx + (size * 0.4f), cy + (size * 0.2f))
+        tempPath.lineTo(cx + (size * 0.4f), cy + size)
+        tempPath.lineTo(cx - (size * 0.4f), cy + size)
+        tempPath.lineTo(cx - (size * 0.4f), cy + (size * 0.2f))
+        tempPath.lineTo(cx - size, cy + (size * 0.2f))
+        tempPath.close()
 
         if (shiftState != SHIFT_OFF) {
-            canvas.drawPath(path, iconFillPaint)
+            canvas.drawPath(tempPath, iconFillPaint)
         } else {
-            canvas.drawPath(path, iconPaint)
+            canvas.drawPath(tempPath, iconPaint)
         }
     }
 
     private fun drawBackspaceIcon(canvas: Canvas, rect: RectF) {
         val cx = rect.centerX()
         val cy = rect.centerY()
-        val w = rect.height() * 0.26f
+        val w = rect.width() * 0.22f
         val h = rect.height() * 0.20f
 
-        iconPaint.color = Color.parseColor("#F1F5F7")
+        iconPaint.color = Color.parseColor("#E0EBF0")
 
-        val path = Path().apply {
-            moveTo(cx - (w * 1.1f), cy)
-            lineTo(cx - (w * 0.4f), cy - h)
-            lineTo(cx + w, cy - h)
-            lineTo(cx + w, cy + h)
-            lineTo(cx - (w * 0.4f), cy + h)
-            close()
-        }
-        canvas.drawPath(path, iconPaint)
+        tempPath.reset()
+        tempPath.moveTo(cx + w, cy - h)
+        tempPath.lineTo(cx - (w * 0.35f), cy - h)
+        tempPath.lineTo(cx - w, cy)
+        tempPath.lineTo(cx - (w * 0.35f), cy + h)
+        tempPath.lineTo(cx + w, cy + h)
+        tempPath.close()
 
-        // Desenhar o X dentro do ícone de backspace
+        canvas.drawPath(tempPath, iconPaint)
+
+        // X interno do Backspace
         val xSize = h * 0.45f
-        val xCenter = cx + (w * 0.3f)
+        val xCenter = cx + (w * 0.25f)
         canvas.drawLine(xCenter - xSize, cy - xSize, xCenter + xSize, cy + xSize, iconPaint)
-        canvas.drawLine(xCenter - xSize, cy + xSize, xCenter + xSize, cy - xSize, iconPaint)
+        canvas.drawLine(xCenter + xSize, cy - xSize, xCenter - xSize, cy + xSize, iconPaint)
     }
 
     private fun drawActionIcon(canvas: Canvas, rect: RectF) {
@@ -527,46 +550,32 @@ class KeyboardView @JvmOverloads constructor(
         val r = rect.height() * 0.18f
 
         iconPaint.color = Color.WHITE
-        iconFillPaint.color = Color.WHITE
 
         when (actionType) {
             ACTION_TYPE_SEARCH -> {
-                // Desenhar lupa 🔍 (idêntica ao print de referência)
-                val circleCenter = cx - (r * 0.2f)
-                val circleY = cy - (r * 0.2f)
-                canvas.drawCircle(circleCenter, circleY, r * 0.75f, iconPaint)
-                canvas.drawLine(
-                    circleCenter + (r * 0.5f),
-                    circleY + (r * 0.5f),
-                    circleCenter + (r * 1.3f),
-                    circleY + (r * 1.3f),
-                    iconPaint
-                )
+                canvas.drawCircle(cx - (r * 0.25f), cy - (r * 0.25f), r * 0.65f, iconPaint)
+                canvas.drawLine(cx + (r * 0.25f), cy + (r * 0.25f), cx + (r * 0.95f), cy + (r * 0.95f), iconPaint)
             }
             ACTION_TYPE_SEND -> {
-                // Ícone de envio
-                val path = Path().apply {
-                    moveTo(cx - r, cy - r)
-                    lineTo(cx + r, cy)
-                    lineTo(cx - r, cy + r)
-                    lineTo(cx - (r * 0.4f), cy)
-                    close()
-                }
-                canvas.drawPath(path, iconFillPaint)
+                tempPath.reset()
+                tempPath.moveTo(cx - r, cy - r)
+                tempPath.lineTo(cx + r, cy)
+                tempPath.lineTo(cx - r, cy + r)
+                tempPath.lineTo(cx - (r * 0.3f), cy)
+                tempPath.close()
+                canvas.drawPath(tempPath, iconFillPaint)
             }
             ACTION_TYPE_DONE -> {
-                // Checkmark ✓
                 canvas.drawLine(cx - r, cy, cx - (r * 0.3f), cy + (r * 0.7f), iconPaint)
                 canvas.drawLine(cx - (r * 0.3f), cy + (r * 0.7f), cx + r, cy - (r * 0.6f), iconPaint)
             }
             else -> {
-                // Seta de nova linha / Enter ↵
-                val path = Path().apply {
-                    moveTo(cx + r, cy - (r * 0.7f))
-                    lineTo(cx + r, cy + (r * 0.3f))
-                    lineTo(cx - r, cy + (r * 0.3f))
-                }
-                canvas.drawPath(path, iconPaint)
+                // Enter ↵
+                tempPath.reset()
+                tempPath.moveTo(cx + r, cy - (r * 0.7f))
+                tempPath.lineTo(cx + r, cy + (r * 0.3f))
+                tempPath.lineTo(cx - r, cy + (r * 0.3f))
+                canvas.drawPath(tempPath, iconPaint)
                 canvas.drawLine(cx - r, cy + (r * 0.3f), cx - (r * 0.3f), cy - (r * 0.3f), iconPaint)
                 canvas.drawLine(cx - r, cy + (r * 0.3f), cx - (r * 0.3f), cy + (r * 0.9f), iconPaint)
             }
@@ -580,16 +589,13 @@ class KeyboardView @JvmOverloads constructor(
 
         iconPaint.color = Color.parseColor("#F1F5F7")
 
-        // Círculo do rosto
         canvas.drawCircle(cx, cy, r, iconPaint)
-        // Olhos
         val eyeRadius = r * 0.12f
         iconFillPaint.color = Color.parseColor("#F1F5F7")
         canvas.drawCircle(cx - (r * 0.35f), cy - (r * 0.2f), eyeRadius, iconFillPaint)
         canvas.drawCircle(cx + (r * 0.35f), cy - (r * 0.2f), eyeRadius, iconFillPaint)
-        // Sorriso
-        val smileRect = RectF(cx - (r * 0.55f), cy - (r * 0.3f), cx + (r * 0.55f), cy + (r * 0.6f))
-        canvas.drawArc(smileRect, 30f, 120f, false, iconPaint)
+        tempRect.set(cx - (r * 0.55f), cy - (r * 0.3f), cx + (r * 0.55f), cy + (r * 0.6f))
+        canvas.drawArc(tempRect, 30f, 120f, false, iconPaint)
     }
 
     private fun calculatePopupLayout(key: Key) {
@@ -624,9 +630,9 @@ class KeyboardView @JvmOverloads constructor(
         if (popupRects.isEmpty()) return
         val first = popupRects.first().second
         val last = popupRects.last().second
-        val fullPopupRect = RectF(first.left - 6f, first.top - 6f, last.right + 6f, last.bottom + 6f)
+        tempRect.set(first.left - 6f, first.top - 6f, last.right + 6f, last.bottom + 6f)
 
-        canvas.drawRoundRect(fullPopupRect, 18f, 18f, popupBgPaint)
+        canvas.drawRoundRect(tempRect, 18f, 18f, popupBgPaint)
 
         for (i in popupRects.indices) {
             val (symbol, rect) = popupRects[i]
@@ -651,12 +657,36 @@ class KeyboardView @JvmOverloads constructor(
                 val y = event.getY(actionIndex)
                 val key = findKey(x, y)
 
+                // Em digitação rápida com múltiplos dedos, cancela qualquer long-press anterior
+                handler.removeCallbacks(longPressRunnable)
+                pendingLongPressPointerId = -1
+
                 if (key != null) {
+                    val now = System.currentTimeMillis()
+
+                    // R1: Regras estritas de proteção contra toque duplo e debounce
+                    val isExemptKey = key.code == CODE_BACKSPACE || key.code == CODE_SHIFT
+                    if (!isExemptKey) {
+                        // 1. Rejeição de ponteiro duplicado sobre a mesma tecla já pressionada
+                        if (activeByKey.containsKey(key)) {
+                            return true
+                        }
+                        // 2. Debounce na mesma tecla se o intervalo for menor que 60 ms
+                        val lastAccepted = lastAcceptedMs[key] ?: 0L
+                        if (now - lastAccepted < 60L) {
+                            return true
+                        }
+                    }
+
+                    // Registra aceitação da tecla
+                    lastAcceptedMs[key] = now
+                    activeByKey[key] = pointerId
+
                     val info = PointerInfo(key, x, y)
                     activePointers[pointerId] = info
-                    asyncVibrate()
+                    triggerKeyVibration()
 
-                    // DISPARO INSTANTÂNEO NO PRIMEIRO TOQUE (0ms de latência!)
+                    // Disparo instantâneo na detecção do toque (0ms de atraso)
                     when (key.code) {
                         CODE_SHIFT -> listener?.onShift()
                         CODE_BACKSPACE -> {
@@ -672,20 +702,18 @@ class KeyboardView @JvmOverloads constructor(
                             keyboardMode = if (keyboardMode == MODE_SYMBOLS) MODE_MORE_SYMBOLS else MODE_SYMBOLS
                         }
                         CODE_EMOJI -> {
-                            // Ao tocar em emoji rápido: insere sorriso, ao segurar: abre lista
                             listener?.onKey(key.code, "😊")
-                            info.dispatchedChar = "😊"
                         }
                         CODE_SPACE -> listener?.onKey(CODE_SPACE, " ")
                         else -> {
                             listener?.onKey(key.code, key.label)
-                            info.dispatchedChar = key.label
                         }
                     }
 
-                    if (key.accents.isNotEmpty()) {
+                    // Apenas programa long-press se não houver múltiplos dedos ativos rapidamente
+                    if (key.accents.isNotEmpty() && activePointers.size == 1) {
                         pendingLongPressPointerId = pointerId
-                        handler.postDelayed(longPressRunnable, 300L)
+                        handler.postDelayed(longPressRunnable, longPressDelay)
                     }
 
                     invalidate()
@@ -716,6 +744,11 @@ class KeyboardView @JvmOverloads constructor(
                 handler.removeCallbacks(longPressRunnable)
                 handler.removeCallbacks(backspaceRunnable)
 
+                val info = activePointers[pointerId]
+                if (info != null) {
+                    activeByKey.remove(info.key)
+                }
+
                 if (popupActive && pointerId == popupPointerId) {
                     if (selectedPopupIndex >= 0 && selectedPopupIndex < popupRects.size) {
                         val chosen = popupRects[selectedPopupIndex].first
@@ -734,6 +767,7 @@ class KeyboardView @JvmOverloads constructor(
 
                 if (actionMasked == MotionEvent.ACTION_UP) {
                     activePointers.clear()
+                    activeByKey.clear()
                     popupActive = false
                     popupKey = null
                     selectedPopupIndex = -1
@@ -747,6 +781,7 @@ class KeyboardView @JvmOverloads constructor(
                 handler.removeCallbacks(longPressRunnable)
                 handler.removeCallbacks(backspaceRunnable)
                 activePointers.clear()
+                activeByKey.clear()
                 popupActive = false
                 popupKey = null
                 selectedPopupIndex = -1
@@ -757,12 +792,44 @@ class KeyboardView @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
+    /**
+     * Algoritmo de tolerância e proximidade:
+     * 1. Verifica toque direto dentro do retângulo da tecla.
+     * 2. Se o toque ocorreu nos espaçamentos/gaps entre teclas durante a digitação rápida,
+     *    encontra a tecla mais próxima para NUNCA perder letras ou gerar atraso percebido.
+     */
     private fun findKey(x: Float, y: Float): Key? {
+        // 1. Toque direto
         for (i in keys.indices) {
             if (keys[i].rect.contains(x, y)) {
                 return keys[i]
             }
         }
-        return null
+
+        // 2. Proximidade com tolerância para digitação veloz
+        var closestKey: Key? = null
+        var minDistanceSq = Float.MAX_VALUE
+
+        for (i in keys.indices) {
+            val rect = keys[i].rect
+            val dx = when {
+                x < rect.left -> rect.left - x
+                x > rect.right -> x - rect.right
+                else -> 0f
+            }
+            val dy = when {
+                y < rect.top -> rect.top - y
+                y > rect.bottom -> y - rect.bottom
+                else -> 0f
+            }
+            val distSq = dx * dx + dy * dy
+            if (distSq < minDistanceSq) {
+                minDistanceSq = distSq
+                closestKey = keys[i]
+            }
+        }
+
+        // Se a distância for razoável (até 64px do teclado), seleciona a tecla mais próxima
+        return if (minDistanceSq <= 4096f) closestKey else keys.firstOrNull()
     }
 }

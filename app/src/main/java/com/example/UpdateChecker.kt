@@ -24,13 +24,25 @@ object UpdateChecker {
     }
 
     suspend fun checkForUpdates(
-        repoOwner: String = "kirakillerdeathsquad",
-        repoName: String = "teclado-pt-br"
+        repoOwner: String = "Sjos0",
+        repoName: String = "LeveTeclado-PT-BR"
     ): UpdateResult = withContext(Dispatchers.IO) {
         val currentVersion = BuildConfig.VERSION_NAME
+        val res = checkRepo(repoOwner, repoName, currentVersion)
+        if (res is UpdateResult.Error && repoOwner != "kirakillerdeathsquad") {
+            // Fallback para repositório alternativo caso o principal não responda
+            val fallbackRes = checkRepo("kirakillerdeathsquad", "teclado-pt-br", currentVersion)
+            if (fallbackRes !is UpdateResult.Error) {
+                return@withContext fallbackRes
+            }
+        }
+        res
+    }
+
+    private fun checkRepo(repoOwner: String, repoName: String, currentVersion: String): UpdateResult {
         var connection: HttpURLConnection? = null
 
-        try {
+        return try {
             val url = URL("https://api.github.com/repos/$repoOwner/$repoName/releases/latest")
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"

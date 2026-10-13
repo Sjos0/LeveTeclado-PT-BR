@@ -20,27 +20,31 @@ class CandidateView @JvmOverloads constructor(
 
     var onSuggestionClickListener: ((String) -> Unit)? = null
     var onSettingsClickListener: (() -> Unit)? = null
+    var onSymbolsClickListener: (() -> Unit)? = null
+    var onEmojiClickListener: (() -> Unit)? = null
+    var onPasteClickListener: (() -> Unit)? = null
+    var onSearchClickListener: (() -> Unit)? = null
 
     private var suggestions: List<String> = emptyList()
     private val candidateRects = ArrayList<Pair<String, RectF>>(3)
     private var pressedIndex = -1
 
-    // Ícones da barra de ferramentas do estilo Gboard
-    private val toolbarIcons = listOf("⚙", "📋", "🔤", "🌐", "🔍")
+    // Ícones da barra de ferramentas (Símbolos, Configurações, Emojis, Colar, Pesquisa)
+    private val toolbarIcons = listOf("?123", "⚙", "😊", "📋", "🔍")
     private val toolbarRects = ArrayList<Pair<String, RectF>>(5)
     private var pressedToolbarIndex = -1
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#1B252A") // Fundo escuro azul-ardósia do Gboard
+        color = Color.parseColor("#263238") // Fundo elegante alinhado à referência
     }
 
     private val dividerPaint = Paint().apply {
-        color = Color.parseColor("#2A373E")
+        color = Color.parseColor("#313C42")
         strokeWidth = 2f
     }
 
     private val pressedChipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2E3C44")
+        color = Color.parseColor("#404A50")
         style = Paint.Style.FILL
     }
 
@@ -51,14 +55,15 @@ class CandidateView @JvmOverloads constructor(
     }
 
     private val normalTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#B0C2CC") // Cinza suave para sugestões secundárias
+        color = Color.parseColor("#CFD8DC") // Tom legível e de alto contraste contra #263238
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
 
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#8E9FA8") // Tom metálico para ícones do toolbar
+        color = Color.parseColor("#ECEFF1") // Tom claro para ícones funcionais
         textAlign = Paint.Align.CENTER
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
 
     fun setSuggestions(list: List<String>) {
@@ -70,7 +75,7 @@ class CandidateView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val density = resources.displayMetrics.density
-        val height = (44 * density).toInt() // Altura padrão da barra de sugestões do Gboard
+        val height = (44 * density).toInt() // Altura ergonômica da barra de sugestões
         setMeasuredDimension(width, height)
     }
 
@@ -95,7 +100,7 @@ class CandidateView @JvmOverloads constructor(
                 candidateRects.add(Pair(suggestions[i], rect))
             }
         } else {
-            // Desenha a barra de ferramentas idêntica ao Gboard quando não está compondo
+            // Barra de ferramentas quando não está em composição
             val iconCount = toolbarIcons.size
             val itemWidth = w / iconCount
             for (i in 0 until iconCount) {
@@ -136,7 +141,7 @@ class CandidateView @JvmOverloads constructor(
                 }
             }
         } else {
-            // Desenhar ícones da barra de ferramentas estilo Gboard
+            // Desenhar botões da barra de ferramentas
             for (i in toolbarRects.indices) {
                 val (icon, rect) = toolbarRects[i]
 
@@ -144,7 +149,7 @@ class CandidateView @JvmOverloads constructor(
                     canvas.drawCircle(rect.centerX(), rect.centerY(), rect.height() * 0.38f, pressedChipPaint)
                 }
 
-                iconPaint.textSize = rect.height() * 0.42f
+                iconPaint.textSize = if (icon.length > 2) rect.height() * 0.34f else rect.height() * 0.42f
                 val textY = rect.centerY() - ((iconPaint.descent() + iconPaint.ascent()) / 2)
                 canvas.drawText(icon, rect.centerX(), textY, iconPaint)
             }
@@ -181,17 +186,35 @@ class CandidateView @JvmOverloads constructor(
                     val chosen = candidateRects[pressedIndex].first
                     onSuggestionClickListener?.invoke(chosen)
                 } else if (suggestions.isEmpty() && pressedToolbarIndex >= 0 && pressedToolbarIndex < toolbarRects.size) {
-                    if (pressedToolbarIndex == 0) {
-                        // Ícone de engrenagem/configurações (abre MainActivity)
-                        if (onSettingsClickListener != null) {
-                            onSettingsClickListener?.invoke()
-                        } else {
-                            try {
-                                val intent = Intent(context, MainActivity::class.java).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
+                    when (pressedToolbarIndex) {
+                        0 -> {
+                            // Acesso imediato à seleção de símbolos
+                            onSymbolsClickListener?.invoke()
+                        }
+                        1 -> {
+                            // Configurações
+                            if (onSettingsClickListener != null) {
+                                onSettingsClickListener?.invoke()
+                            } else {
+                                try {
+                                    val intent = Intent(context, MainActivity::class.java).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            }
+                        }
+                        2 -> {
+                            // Emojis
+                            onEmojiClickListener?.invoke()
+                        }
+                        3 -> {
+                            // Colar da área de transferência
+                            onPasteClickListener?.invoke()
+                        }
+                        4 -> {
+                            // Ação de pesquisa
+                            onSearchClickListener?.invoke()
                         }
                     }
                 }

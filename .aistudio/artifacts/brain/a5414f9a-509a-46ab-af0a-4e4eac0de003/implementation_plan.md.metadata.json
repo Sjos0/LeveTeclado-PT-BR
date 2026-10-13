@@ -1,6 +1,6 @@
 {
-  "summary": "Plano de implementação para digitação instantânea no toque (zero latência), botão de varredura de atualizações via GitHub Releases e incremento de versionCode para reconhecimento de atualização no Android.",
-  "updatedAt": "2026-10-13T01:27:29.533735259Z",
+  "summary": "Plano final v6 do Teclado Leve PT-BR atualizado com todas as 15 regras do checklist: glossário completo, definição estrita de candidata, escopo da tabela curada offline, precedência de ate, validade de formas acentuadas com >=100 ocorrências, unmunch/grep -xFf, stoplist_names.txt, suíte completa de testes (corrigir, só sugerir, preservar), inputType com TYPE_NUMBER_VARIATION_PASSWORD e segurança de release.",
+  "updatedAt": "2026-10-13T11:00:28.554551297Z",
   "requestFeedback": true,
   "userFacing": true
 }

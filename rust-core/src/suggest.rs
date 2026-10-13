@@ -48,11 +48,12 @@ pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<
             }
         }
         // Se não houver contexto, retorna as 3 palavras mais frequentes
-        return dict
-            .unigrams
-            .iter()
+        let mut sorted_unigrams = dict.unigrams.clone();
+        sorted_unigrams.sort_by(|a, b| b.freq.cmp(&a.freq));
+        return sorted_unigrams
+            .into_iter()
             .take(3)
-            .map(|u| u.exact.clone())
+            .map(|u| u.exact)
             .collect();
     }
 
@@ -123,28 +124,58 @@ pub fn get_auto_correction(dict: &Dictionary, prev_word: &str, typed_word: &str)
 
     let typed_lower = clean.to_lowercase();
 
+    // 0. Stoplist e palavras estritamente protegidas contra autocorreção
+    let stoplist = [
+        "francois", "françois", "roma", "victor", "max",
+        "ai", "esta", "festa", "algo", "calor", "ainda", "todo", "toda", "todos", "todas",
+        "pois", "malha", "abraço", "abraços", "pra", "tbm", "vc", "pq", "blz", "bjs", "kkk", "kkkk",
+        "avó", "avô", "está", "pode", "pôde", "vem", "vêm", "por", "pôr", "de", "que", "não",
+        "bebe", "bebê", "pais", "país", "nós", "robôs", "vocês", "pés"
+    ];
+    if stoplist.contains(&typed_lower.as_str()) {
+        return None;
+    }
+
     // 1. Conservador: Se já for uma palavra válida exatamente no dicionário, NÃO corrige!
     if dict.is_word(&typed_lower) {
         return None;
     }
 
+    let is_short_word = clean.chars().count() <= 4;
     let typed_norm = normalize(clean);
 
     // 2. Correção de acento: se digitou sem acento (ex: 'nao', 'voce', 'ate', 'tambem'),
     // e o dicionário possui a palavra com acento, essa é a correção mais natural e segura.
-    for u in &dict.unigrams {
-        if u.norm == typed_norm {
-            return Some(u.exact.clone());
+    let accent_matches: Vec<&crate::dictionary::Unigram> = dict.unigrams
+        .iter()
+        .filter(|u| u.norm == typed_norm)
+        .collect();
+
+    if accent_matches.len() == 1 {
+        let candidate = accent_matches[0];
+        if candidate.freq >= 12000 {
+            return Some(candidate.exact.clone());
         }
+    } else if accent_matches.len() > 1 {
+        // Formas ambíguas nunca são substituídas automaticamente no espaço
+        return None;
     }
 
-    // 3. Verificação de proximidade/distância de edição conservadora (apenas distância = 1)
+    // Palavras com até 4 letras nunca sofrem correção por distância de edição
+    if is_short_word {
+        return None;
+    }
+
+    // 3. Verificação de proximidade/distância de edição conservadora (apenas distância = 1 e palavras >= 5 letras)
     let prev_norm = normalize(prev_word.trim());
     let mut best_candidate: Option<(String, u32)> = None;
 
     for u in &dict.unigrams {
+        if stoplist.contains(&u.exact.to_lowercase().as_str()) {
+            continue;
+        }
         let dist = levenshtein(&typed_norm, &u.norm);
-        if dist == 1 && u.freq >= 15000 {
+        if dist == 1 && u.freq >= 20000 {
             let mut score = u.freq as u32;
             if !prev_norm.is_empty() {
                 if let Some(list) = dict.bigrams_by_prev.get(&prev_norm) {

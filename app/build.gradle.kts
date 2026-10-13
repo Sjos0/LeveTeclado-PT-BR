@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.tecladoptbr.kxqpva"
     minSdk = 26
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.2"
+    versionCode = 5
+    versionName = "1.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     ndk {
@@ -52,7 +52,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
