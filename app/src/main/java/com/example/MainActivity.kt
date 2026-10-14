@@ -588,28 +588,31 @@ class MainActivity : Activity() {
     }
 
     private fun showUpdateAvailableDialog(result: UpdateChecker.UpdateResult.NewVersion) {
+        // Altura máxima do conteúdo rolável: ~50% da tela, para os 3 botões
+        // do AlertDialog (Baixar / GitHub / Depois) ficarem sempre visíveis.
         val screenH = resources.displayMetrics.heightPixels
-        val maxScrollH = (screenH * 0.55f).toInt().coerceAtLeast(dp(180))
+        val maxScrollH = (screenH * 0.50f).toInt().coerceIn(dp(160), dp(420))
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), dp(4))
+            setPadding(dp(18), dp(6), dp(18), dp(2))
         }
 
         val versionInfo = TextView(this).apply {
-            text = "Atual: v${result.currentVersion}  →  Nova: v${result.latestVersion}"
+            text = "Versão atual instalada: v${result.currentVersion}\nVersão mais recente: v${result.latestVersion}"
             setTextColor(Color.parseColor("#94A3B8"))
             textSize = 13.5f
-            setPadding(0, 0, 0, dp(10))
+            setLineSpacing(0f, 1.2f)
+            setPadding(0, 0, 0, dp(12))
         }
         root.addView(versionInfo)
 
         val notesTitle = TextView(this).apply {
-            text = "Novidades"
+            text = "Novidades:"
             setTextColor(Color.parseColor("#F4F4F5"))
             textSize = 15f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            setPadding(0, 0, 0, dp(6))
+            setPadding(0, 0, 0, dp(8))
         }
         root.addView(notesTitle)
 
@@ -617,13 +620,15 @@ class MainActivity : Activity() {
             text = markdownToSpanned(result.releaseNotes.ifBlank { "Melhorias e correções." })
             setTextColor(Color.parseColor("#CBD5E1"))
             textSize = 13.5f
-            setLineSpacing(0f, 1.15f)
+            setLineSpacing(dp(2).toFloat(), 1.18f)
             setTextIsSelectable(true)
+            setPadding(0, 0, 0, dp(12))
         }
 
         val scroll = ScrollView(this).apply {
             isFillViewport = false
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            isVerticalScrollBarEnabled = true
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 maxScrollH
@@ -639,9 +644,9 @@ class MainActivity : Activity() {
         root.addView(scroll)
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Nova versão: v${result.latestVersion}")
+            .setTitle("Nova Versão Disponível: v${result.latestVersion}")
             .setView(root)
-            .setPositiveButton("Baixar APK") { _, _ ->
+            .setPositiveButton("Baixar Atualização (APK)") { _, _ ->
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl)))
                 } catch (_: Exception) {
@@ -659,6 +664,7 @@ class MainActivity : Activity() {
 
         dialog.show()
 
+        // Largura responsiva: ~92% da tela, no máximo ~420 dp (tablets).
         dialog.window?.let { w ->
             val screenW = resources.displayMetrics.widthPixels
             val width = (screenW * 0.92f).toInt().coerceAtMost(dp(420))
@@ -666,15 +672,36 @@ class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Converte Markdown simples (##, **, `code`, listas -/*/1.) em Spanned
+     * sem bibliotecas externas — adequado a dispositivos com pouca RAM.
+     */
     private fun markdownToSpanned(md: String): CharSequence {
         val sb = SpannableStringBuilder()
         val lines = md.replace("\r\n", "\n").split('\n')
         var first = true
+        var prevBlank = false
+
         for (raw in lines) {
-            var line = raw.trimEnd()
+            val trimmedEnd = raw.trimEnd()
+            val isBlank = trimmedEnd.isBlank()
+
+            // Colapsa linhas em branco consecutivas em uma só.
+            if (isBlank) {
+                if (!first && !prevBlank) {
+                    sb.append('\n')
+                    prevBlank = true
+                }
+                continue
+            }
+            prevBlank = false
+
             if (!first) sb.append('\n')
             first = false
 
+            var line = trimmedEnd
+
+            // Cabeçalhos: # ## ###
             val headerMatch = Regex("^(#{1,3})\\s+(.*)").find(line)
             if (headerMatch != null) {
                 val level = headerMatch.groupValues[1].length
@@ -684,14 +711,15 @@ class MainActivity : Activity() {
                 val endIdx = sb.length
                 sb.setSpan(StyleSpan(Typeface.BOLD), startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 val scale = when (level) {
-                    1 -> 1.2f
-                    2 -> 1.1f
-                    else -> 1.05f
+                    1 -> 1.22f
+                    2 -> 1.12f
+                    else -> 1.06f
                 }
                 sb.setSpan(RelativeSizeSpan(scale), startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 continue
             }
 
+            // Listas: - * + ou 1. 2.
             val listMatch = Regex("^([-*+]|\\d+\\.)\\s+(.*)").find(line.trimStart())
             if (listMatch != null) {
                 line = "• " + listMatch.groupValues[2]
