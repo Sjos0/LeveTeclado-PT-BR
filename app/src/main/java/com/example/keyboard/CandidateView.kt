@@ -81,7 +81,7 @@ class CandidateView @JvmOverloads constructor(
     private val iconTint = Color.parseColor("#B0BEC5")
 
     private val toolbarIcons: Map<ToolbarAction, Drawable?> = mapOf(
-        ToolbarAction.MENU to loadTinted(R.drawable.ic_toolbar_menu),
+        ToolbarAction.MENU to loadTinted(R.drawable.view_cozy_24),
         ToolbarAction.CURSOR to loadTinted(R.drawable.ic_toolbar_cursor),
         ToolbarAction.CLIPBOARD to loadTinted(R.drawable.ic_toolbar_clipboard),
         ToolbarAction.TRANSLATE to loadTinted(R.drawable.ic_toolbar_translate),
