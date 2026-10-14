@@ -20,6 +20,12 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.TypefaceSpan
 import android.widget.Toast
 import android.content.pm.PackageManager
 import android.Manifest
@@ -557,29 +563,13 @@ class MainActivity : Activity() {
 
             when (result) {
                 is UpdateChecker.UpdateResult.NewVersion -> {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("Nova Versão Disponível: v${result.latestVersion} 🚀")
-                        .setMessage("Versão atual instalada: v${result.currentVersion}\nVersão mais recente: v${result.latestVersion}\n\nNovidades:\n${result.releaseNotes}")
-                        .setPositiveButton("Baixar Atualização (APK)") { _, _ ->
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl))
-                                startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                        .setNeutralButton("Ver no GitHub") { _, _ ->
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.htmlUrl))
-                                startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                        .setNegativeButton("Depois", null)
-                        .show()
+                    showUpdateAvailableDialog(result)
                 }
                 is UpdateChecker.UpdateResult.UpToDate -> {
                     if (showFeedbackIfLatest) {
                         AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Aplicativo Atualizado 🎉")
-                            .setMessage("Você já está na versão mais recente (v${result.currentVersion})!\n\nSeu teclado conta com digitação otimizada sem atrasos.")
+                            .setTitle("Aplicativo Atualizado")
+                            .setMessage("Você já está na versão mais recente (v${result.currentVersion}).")
                             .setPositiveButton("OK", null)
                             .show()
                     }
@@ -588,7 +578,7 @@ class MainActivity : Activity() {
                     if (showFeedbackIfLatest) {
                         AlertDialog.Builder(this@MainActivity)
                             .setTitle("Status das Atualizações")
-                            .setMessage("Versão instalada: v${BuildConfig.VERSION_NAME}\n\nStatus da consulta ao GitHub: ${result.message}")
+                            .setMessage("Versão instalada: v${BuildConfig.VERSION_NAME}\n\nStatus: ${result.message}")
                             .setPositiveButton("OK", null)
                             .show()
                     }
@@ -597,6 +587,162 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun showUpdateAvailableDialog(result: UpdateChecker.UpdateResult.NewVersion) {
+        val screenH = resources.displayMetrics.heightPixels
+        val maxScrollH = (screenH * 0.55f).toInt().coerceAtLeast(dp(180))
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+        }
+
+        val versionInfo = TextView(this).apply {
+            text = "Atual: v${result.currentVersion}  →  Nova: v${result.latestVersion}"
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 13.5f
+            setPadding(0, 0, 0, dp(10))
+        }
+        root.addView(versionInfo)
+
+        val notesTitle = TextView(this).apply {
+            text = "Novidades"
+            setTextColor(Color.parseColor("#F4F4F5"))
+            textSize = 15f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(6))
+        }
+        root.addView(notesTitle)
+
+        val notesView = TextView(this).apply {
+            text = markdownToSpanned(result.releaseNotes.ifBlank { "Melhorias e correções." })
+            setTextColor(Color.parseColor("#CBD5E1"))
+            textSize = 13.5f
+            setLineSpacing(0f, 1.15f)
+            setTextIsSelectable(true)
+        }
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                maxScrollH
+            )
+        }
+        scroll.addView(
+            notesView,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+        root.addView(scroll)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Nova versão: v${result.latestVersion}")
+            .setView(root)
+            .setPositiveButton("Baixar APK") { _, _ ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl)))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Não foi possível abrir o link", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNeutralButton("GitHub") { _, _ ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.htmlUrl)))
+                } catch (_: Exception) {
+                }
+            }
+            .setNegativeButton("Depois", null)
+            .create()
+
+        dialog.show()
+
+        dialog.window?.let { w ->
+            val screenW = resources.displayMetrics.widthPixels
+            val width = (screenW * 0.92f).toInt().coerceAtMost(dp(420))
+            w.setLayout(width, android.view.WindowManager.LayoutParams.WRAP_CONTENT)
+        }
+    }
+
+    private fun markdownToSpanned(md: String): CharSequence {
+        val sb = SpannableStringBuilder()
+        val lines = md.replace("\r\n", "\n").split('\n')
+        var first = true
+        for (raw in lines) {
+            var line = raw.trimEnd()
+            if (!first) sb.append('\n')
+            first = false
+
+            val headerMatch = Regex("^(#{1,3})\\s+(.*)").find(line)
+            if (headerMatch != null) {
+                val level = headerMatch.groupValues[1].length
+                val content = headerMatch.groupValues[2].trim()
+                val startIdx = sb.length
+                sb.append(content)
+                val endIdx = sb.length
+                sb.setSpan(StyleSpan(Typeface.BOLD), startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                val scale = when (level) {
+                    1 -> 1.2f
+                    2 -> 1.1f
+                    else -> 1.05f
+                }
+                sb.setSpan(RelativeSizeSpan(scale), startIdx, endIdx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                continue
+            }
+
+            val listMatch = Regex("^([-*+]|\\d+\\.)\\s+(.*)").find(line.trimStart())
+            if (listMatch != null) {
+                line = "• " + listMatch.groupValues[2]
+            }
+
+            appendInlineMarkdown(sb, line)
+        }
+        return sb
+    }
+
+    private fun appendInlineMarkdown(sb: SpannableStringBuilder, line: String) {
+        var i = 0
+        while (i < line.length) {
+            when {
+                line.startsWith("**", i) -> {
+                    val close = line.indexOf("**", i + 2)
+                    if (close > i) {
+                        val startIdx = sb.length
+                        sb.append(line.substring(i + 2, close))
+                        sb.setSpan(StyleSpan(Typeface.BOLD), startIdx, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        i = close + 2
+                    } else {
+                        sb.append(line[i])
+                        i++
+                    }
+                }
+                line[i] == '`' -> {
+                    val close = line.indexOf('`', i + 1)
+                    if (close > i) {
+                        val startIdx = sb.length
+                        sb.append(line.substring(i + 1, close))
+                        sb.setSpan(TypefaceSpan("monospace"), startIdx, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        sb.setSpan(
+                            ForegroundColorSpan(Color.parseColor("#93C5FD")),
+                            startIdx,
+                            sb.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                        i = close + 1
+                    } else {
+                        sb.append('`')
+                        i++
+                    }
+                }
+                else -> {
+                    sb.append(line[i])
+                    i++
+                }
+            }
+        }
+    }
 
     private fun showSpeechToTextDialog() {
         val container = LinearLayout(this).apply {
