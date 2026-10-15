@@ -1,11 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Material: spellcheck — Correção de texto (Gboard) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#5F6368"
-        android:pathData="M12.45,16h2.09L9.43,3H7.34L2.43,16h2.09l1.12,-3h5.64L12.45,16zM5.88,11L8.38,4.41 10.88,11H5.88zM21.59,11.59l-3.17,-3.18 -1.42,1.41L18.76,12l-1.76,1.77 1.42,1.41 3.17,-3.18c0.39,-0.39 0.39,-1.02 0,-1.41z"/>
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <path
+      android:fillColor="#5F6368"
+      android:pathData="M564,880L394,710L450,654L564,768L790,542L846,598L564,880ZM120,640L314,120L408,120L602,640L510,640L464,508L254,508L208,640L120,640ZM282,432L438,432L362,216L358,216L282,432Z"/>
 </vector>
