@@ -673,7 +673,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Converte Markdown simples (##, **, `code`, listas -/*/1.) em Spanned
+     * Converte Markdown simples (##, **, `code`, listas -, *, 1.) em Spanned
      * sem bibliotecas externas — adequado a dispositivos com pouca RAM.
      */
     private fun markdownToSpanned(md: String): CharSequence {
