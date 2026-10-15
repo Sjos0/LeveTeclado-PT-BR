@@ -75,6 +75,11 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 | Fechar menu | `close` |
 
 
+### Logo do aplicativo
+
+- `artifacts/assets/app_logo.png` (fonte) e `app_logo_512.png`
+- Ícones launcher (`mipmap-*` + `ic_keyboard_logo`) atualizados com a nova marca
+
 ### Correções de IME (microfone e backspace)
 
 - **Overlay de gravação**: ao gravar por voz, as teclas não usam mais `View.GONE` (isso encolhia a janela do IME e o painel de gravação sumia). Agora a altura é fixada, o teclado fica `INVISIBLE` e o overlay cobre a área com botão **■** para enviar e **Cancelar**.
