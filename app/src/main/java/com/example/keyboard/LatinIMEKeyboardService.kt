@@ -318,12 +318,19 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
             if (composingWord.isNotEmpty()) {
                 ic.setComposingText(composingWord.toString(), 1)
             } else {
-                ic.commitText("", 1)
+                // Limpa composição sem commit vazio (evita efeitos colaterais no editor)
+                ic.setComposingText("", 0)
+                ic.finishComposingText()
             }
             updateCandidates()
         } else {
-            // Nenhum texto em composição: envia evento padrão de backspace
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            // Só InputConnection — NUNCA KEYCODE_DEL: em vários apps o DEL com campo
+            // vazio (ou o último caractere) faz o sistema fechar o teclado.
+            val before = ic.getTextBeforeCursor(1, 0)
+            if (!before.isNullOrEmpty()) {
+                ic.deleteSurroundingText(1, 0)
+            }
+            // Se já está vazio, não faz nada e mantém o IME visível.
         }
 
         checkAutoCapitalization()
@@ -451,12 +458,15 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     private fun startVoiceRecording() {
         try {
             if (voiceHelper == null) voiceHelper = VoiceInputHelper(this)
-            voiceHelper!!.start()
+            // Mostra a UI primeiro — se a gravação falhar, o usuário vê e pode cancelar
             showRecordingOverlay()
+            voiceHelper!!.start()
             mainHandler.post(amplitudeRunnable)
         } catch (e: Exception) {
-            Toast.makeText(this, "Não foi possível iniciar o microfone: ${e.message}", Toast.LENGTH_LONG).show()
+            mainHandler.removeCallbacks(amplitudeRunnable)
+            voiceHelper?.cancel()
             hideRecordingOverlay()
+            Toast.makeText(this, "Não foi possível iniciar o microfone: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -501,45 +511,65 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     private fun showRecordingOverlay() {
         hideRecordingOverlay()
         val density = resources.displayMetrics.density
+        // Altura estável: evita View.GONE nas teclas (encolhe a janela do IME e o overlay some).
+        val kbH = when {
+            contentFrame.height > 0 -> contentFrame.height
+            keyboardView.height > 0 -> keyboardView.height
+            keyboardView.layoutParams?.height?.let { it > 0 } == true -> keyboardView.layoutParams.height
+            else -> (240 * density).toInt()
+        }
+        contentFrame.minimumHeight = kbH
+        contentFrame.layoutParams = (contentFrame.layoutParams as LinearLayout.LayoutParams).apply {
+            height = kbH
+            weight = 0f
+        }
+        // INVISIBLE mantém o espaço de layout; overlay cobre por cima
+        keyboardView.visibility = View.INVISIBLE
+        morePanel.visibility = View.GONE
+        emojiPanel.visibility = View.GONE
+
         val overlay = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#E01B2327"))
+            setBackgroundColor(Color.parseColor("#1B2327"))
             isClickable = true
+            isFocusable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         }
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding((16 * density).toInt(), (12 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+            setPadding((16 * density).toInt(), (20 * density).toInt(), (16 * density).toInt(), (24 * density).toInt())
         }
         val title = TextView(this).apply {
-            text = "Ouvindo… toque no quadrado para enviar"
+            text = "Ouvindo… toque no ■ para enviar"
             setTextColor(Color.parseColor("#E2E8F0"))
-            textSize = 13f
+            textSize = 14f
             gravity = Gravity.CENTER
         }
         statusLabel = title
         val ring = TextView(this).apply {
             text = "🎤"
-            textSize = 28f
+            textSize = 36f
             gravity = Gravity.CENTER
-            setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+            setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
             setTextColor(Color.parseColor("#50B4CE"))
         }
         amplitudeView = ring
         val stopBtn = TextView(this).apply {
             text = "■"
-            textSize = 22f
+            textSize = 28f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#3B82F6"))
-            setPadding((28 * density).toInt(), (10 * density).toInt(), (28 * density).toInt(), (10 * density).toInt())
+            setPadding((40 * density).toInt(), (14 * density).toInt(), (40 * density).toInt(), (14 * density).toInt())
+            contentDescription = "Parar gravação e enviar"
             setOnClickListener { finishRecordingAndTranscribe() }
         }
         val cancel = TextView(this).apply {
             text = "Cancelar"
-            textSize = 12f
+            textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(Color.parseColor("#94A3B8"))
-            setPadding(0, (8 * density).toInt(), 0, 0)
+            setPadding(0, (12 * density).toInt(), 0, 0)
             setOnClickListener {
                 mainHandler.removeCallbacks(amplitudeRunnable)
                 voiceHelper?.cancel()
@@ -550,31 +580,67 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         column.addView(ring)
         column.addView(stopBtn)
         column.addView(cancel)
-        overlay.addView(column, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER
-        ))
-        // Inserir overlay acima do teclado no root
-        val root = keyboardView.parent as? LinearLayout
-        if (root != null) {
-            root.addView(overlay, 0, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ))
-            recordingOverlay = overlay
-        }
+        overlay.addView(
+            column,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        )
+
+        contentFrame.addView(
+            overlay,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        recordingOverlay = overlay
+        contentFrame.requestLayout()
+        contentFrame.invalidate()
     }
 
     private fun hideRecordingOverlay() {
-        val overlay = recordingOverlay ?: return
-        try {
-            (overlay.parent as? android.view.ViewGroup)?.removeView(overlay)
-        } catch (_: Exception) {
+        val overlay = recordingOverlay
+        if (overlay != null) {
+            try {
+                (overlay.parent as? android.view.ViewGroup)?.removeView(overlay)
+            } catch (_: Exception) {
+            }
         }
         recordingOverlay = null
         amplitudeView = null
         statusLabel = null
+        // Restaura altura flexível do contentFrame e o painel ativo
+        if (::contentFrame.isInitialized) {
+            contentFrame.minimumHeight = 0
+            contentFrame.layoutParams = (contentFrame.layoutParams as LinearLayout.LayoutParams).apply {
+                height = 0
+                weight = 1f
+            }
+        }
+        if (::keyboardView.isInitialized) {
+            when (panelMode) {
+                PanelMode.MORE -> {
+                    morePanel.visibility = View.VISIBLE
+                    keyboardView.visibility = View.GONE
+                    emojiPanel.visibility = View.GONE
+                }
+                PanelMode.EMOJI -> {
+                    emojiPanel.visibility = View.VISIBLE
+                    keyboardView.visibility = View.GONE
+                    morePanel.visibility = View.GONE
+                }
+                else -> {
+                    keyboardView.visibility = View.VISIBLE
+                    morePanel.visibility = View.GONE
+                    emojiPanel.visibility = View.GONE
+                    panelMode = PanelMode.KEYBOARD
+                }
+            }
+            contentFrame.requestLayout()
+        }
     }
 
 
