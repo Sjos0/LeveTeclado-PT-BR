@@ -80,6 +80,22 @@ class KeyboardView @JvmOverloads constructor(
 
     var vibrateEnabled: Boolean = false
 
+    fun applyPalette(p: KeyboardTheme.Palette) {
+        backgroundPaint.color = p.background
+        keyPaint.color = p.key
+        specialKeyPaint.color = p.specialKey
+        symbolKeyPaint.color = p.specialKey
+        pressedKeyPaint.color = p.pressedKey
+        actionKeyPaint.color = p.actionKey
+        actionPressedPaint.color = p.actionPressed
+        textPaint.color = p.text
+        specialTextPaint.color = p.text
+        iconPaint.color = p.text
+        iconFillPaint.color = p.text
+        emojiBorderPaint.color = p.emojiBorder
+        invalidate()
+    }
+
     private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
     // Paleta de cores oficial baseada na referência (fundo #263238, tecla #404A50, função #313C42, emoji border #7FCFFF)

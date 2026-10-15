@@ -35,6 +35,18 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     private var transcribing = false
     private val voiceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var recordingOverlay: FrameLayout? = null
+    private lateinit var contentFrame: FrameLayout
+    private lateinit var morePanel: MorePanelView
+    private lateinit var emojiPanel: EmojiPanelView
+    private var panelMode: PanelMode = PanelMode.KEYBOARD
+
+    private enum class PanelMode { KEYBOARD, MORE, EMOJI }
+
+    /** Pilha simples de desfazer (últimas operações de texto). */
+    private data class UndoEntry(val kind: Kind, val text: String, val beforeLen: Int = 0) {
+        enum class Kind { INSERT, DELETE, REPLACE }
+    }
+    private val undoStack = ArrayDeque<UndoEntry>(16)
     private var amplitudeView: TextView? = null
     private var statusLabel: TextView? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -75,59 +87,24 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         }
 
         candidateView = CandidateView(this).apply {
+            setToolbarOrder(CandidateView.parseOrder(prefs.toolbarOrder))
             onSuggestionClickListener = { chosen ->
                 commitSuggestion(chosen)
             }
+            onToolbarOrderChanged = { order ->
+                prefs.toolbarOrder = CandidateView.serializeOrder(order)
+            }
             onToolbarActionClickListener = { action ->
                 when (action) {
-                    CandidateView.ToolbarAction.MENU -> {
-                        // Alterna para símbolos/menu
-                        keyboardView.keyboardMode = if (keyboardView.keyboardMode == KeyboardView.MODE_TEXT) {
-                            KeyboardView.MODE_SYMBOLS
-                        } else {
-                            KeyboardView.MODE_TEXT
-                        }
-                    }
+                    CandidateView.ToolbarAction.MENU -> toggleMorePanel()
                     CandidateView.ToolbarAction.CURSOR -> {
-                        // Navegação de cursor / seleção rápida
                         currentInputConnection?.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT))
                         currentInputConnection?.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_LEFT))
                     }
-                    CandidateView.ToolbarAction.CLIPBOARD -> {
-                        // Colar da área de transferência
-                        try {
-                            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                            val clip = clipboard?.primaryClip
-                            if (clip != null && clip.itemCount > 0) {
-                                val pasteText = clip.getItemAt(0).text?.toString()
-                                if (!pasteText.isNullOrEmpty()) {
-                                    commitComposingText()
-                                    currentInputConnection?.commitText(pasteText, 1)
-                                }
-                            }
-                        } catch (_: Exception) {}
-                    }
-                    CandidateView.ToolbarAction.TRANSLATE -> {
-                        // Ação de tradução: comuta layout ou abre configurações se necessário
-                        try {
-                            val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
-                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            startActivity(intent)
-                        } catch (_: Exception) {}
-                    }
-                    CandidateView.ToolbarAction.SETTINGS -> {
-                        // Abre configurações do app
-                        try {
-                            val intent = android.content.Intent(this@LatinIMEKeyboardService, com.example.MainActivity::class.java).apply {
-                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            startActivity(intent)
-                        } catch (_: Exception) {}
-                    }
-                    CandidateView.ToolbarAction.MIC -> {
-                        onMicTapped()
-                    }
+                    CandidateView.ToolbarAction.CLIPBOARD -> pasteClipboard()
+                    CandidateView.ToolbarAction.TRANSLATE -> openMainActivity()
+                    CandidateView.ToolbarAction.SETTINGS -> openMainActivity()
+                    CandidateView.ToolbarAction.MIC -> onMicTapped()
                 }
             }
         }
@@ -137,9 +114,57 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
             vibrateEnabled = prefs.vibrateOnPress
         }
 
-        root.addView(candidateView)
-        root.addView(keyboardView)
+        morePanel = MorePanelView(this).apply {
+            visibility = android.view.View.GONE
+            onAction = { act ->
+                when (act) {
+                    MorePanelView.Action.THEME -> cycleTheme()
+                    MorePanelView.Action.EMOJI -> showEmojiPanel()
+                    MorePanelView.Action.SHARE -> shareCurrentText()
+                    MorePanelView.Action.UNDO -> performUndo()
+                }
+            }
+        }
 
+        emojiPanel = EmojiPanelView(this).apply {
+            visibility = android.view.View.GONE
+            onEmoji = { emoji ->
+                pushUndoInsert(emoji)
+                currentInputConnection?.commitText(emoji, 1)
+            }
+            onBack = { showMorePanel() }
+        }
+
+        contentFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        }
+        // Altura mínima razoável para o teclado
+        val density = resources.displayMetrics.density
+        val kbH = (240 * density).toInt()
+        keyboardView.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            kbH
+        )
+        morePanel.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            kbH
+        )
+        emojiPanel.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            kbH
+        )
+        contentFrame.addView(keyboardView)
+        contentFrame.addView(morePanel)
+        contentFrame.addView(emojiPanel)
+
+        root.addView(candidateView)
+        root.addView(contentFrame)
+
+        applyCurrentTheme()
         return root
     }
 
@@ -153,6 +178,8 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         keyboardView.vibrateEnabled = prefs.vibrateOnPress
+        applyCurrentTheme()
+        if (panelMode != PanelMode.KEYBOARD) showKeyboardPanel()
 
         if (info != null) {
             updateEnterActionLabel(info)
@@ -548,6 +575,166 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         recordingOverlay = null
         amplitudeView = null
         statusLabel = null
+    }
+
+
+    private fun toggleMorePanel() {
+        if (panelMode == PanelMode.MORE || panelMode == PanelMode.EMOJI) {
+            showKeyboardPanel()
+        } else {
+            showMorePanel()
+        }
+    }
+
+    private fun showKeyboardPanel() {
+        panelMode = PanelMode.KEYBOARD
+        keyboardView.visibility = android.view.View.VISIBLE
+        morePanel.visibility = android.view.View.GONE
+        emojiPanel.visibility = android.view.View.GONE
+        candidateView.menuOpen = false
+    }
+
+    private fun showMorePanel() {
+        panelMode = PanelMode.MORE
+        keyboardView.visibility = android.view.View.GONE
+        morePanel.visibility = android.view.View.VISIBLE
+        emojiPanel.visibility = android.view.View.GONE
+        candidateView.menuOpen = true
+    }
+
+    private fun showEmojiPanel() {
+        panelMode = PanelMode.EMOJI
+        keyboardView.visibility = android.view.View.GONE
+        morePanel.visibility = android.view.View.GONE
+        emojiPanel.visibility = android.view.View.VISIBLE
+        candidateView.menuOpen = true
+    }
+
+    private fun applyCurrentTheme() {
+        val palette = KeyboardTheme.get(prefs.themeId)
+        if (::keyboardView.isInitialized) keyboardView.applyPalette(palette)
+        if (::candidateView.isInitialized) candidateView.applyPalette(palette)
+        if (::morePanel.isInitialized) morePanel.applyPalette(palette)
+        if (::emojiPanel.isInitialized) emojiPanel.applyPalette(palette)
+        if (::contentFrame.isInitialized) {
+            // fundo do root já no candidate; contentFrame transparente
+        }
+    }
+
+    private fun cycleTheme() {
+        prefs.themeId = KeyboardTheme.nextId(prefs.themeId)
+        val palette = KeyboardTheme.get(prefs.themeId)
+        applyCurrentTheme()
+        android.widget.Toast.makeText(this, "Tema: ${palette.name}", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun pasteClipboard() {
+        try {
+            val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            val clip = clipboard?.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val pasteText = clip.getItemAt(0).text?.toString()
+                if (!pasteText.isNullOrEmpty()) {
+                    commitComposingText()
+                    pushUndoInsert(pasteText)
+                    currentInputConnection?.commitText(pasteText, 1)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun openMainActivity() {
+        try {
+            val intent = android.content.Intent(this, com.example.MainActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    private fun shareCurrentText() {
+        try {
+            val ic = currentInputConnection ?: return
+            val selected = ic.getSelectedText(0)?.toString()
+            val text = if (!selected.isNullOrEmpty()) {
+                selected
+            } else {
+                val before = ic.getTextBeforeCursor(500, 0)?.toString().orEmpty()
+                val after = ic.getTextAfterCursor(500, 0)?.toString().orEmpty()
+                (before + after).trim()
+            }
+            if (text.isEmpty()) {
+                android.widget.Toast.makeText(this, "Nada para compartilhar", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_TEXT, text)
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(android.content.Intent.createChooser(intent, "Compartilhar texto").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            showKeyboardPanel()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Não foi possível compartilhar", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun pushUndoInsert(text: String) {
+        if (text.isEmpty()) return
+        if (undoStack.size >= 16) undoStack.removeFirst()
+        undoStack.addLast(UndoEntry(UndoEntry.Kind.INSERT, text))
+    }
+
+    private fun pushUndoDelete(text: String) {
+        if (text.isEmpty()) return
+        if (undoStack.size >= 16) undoStack.removeFirst()
+        undoStack.addLast(UndoEntry(UndoEntry.Kind.DELETE, text))
+    }
+
+    private fun pushUndoReplace(original: String, corrected: String) {
+        if (undoStack.size >= 16) undoStack.removeFirst()
+        undoStack.addLast(UndoEntry(UndoEntry.Kind.REPLACE, original, corrected.length))
+    }
+
+    private fun performUndo() {
+        val ic = currentInputConnection ?: return
+        val entry = undoStack.removeLastOrNull()
+        if (entry == null) {
+            // Fallback: desfaz auto-correção registrada
+            val last = lastAutoCorrection
+            if (last != null) {
+                val before = ic.getTextBeforeCursor(last.corrected.length, 0)?.toString().orEmpty()
+                if (before.endsWith(last.corrected)) {
+                    ic.deleteSurroundingText(last.corrected.length, 0)
+                    ic.commitText(last.original, 1)
+                    lastAutoCorrection = null
+                    showKeyboardPanel()
+                    return
+                }
+            }
+            android.widget.Toast.makeText(this, "Nada para desfazer", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        when (entry.kind) {
+            UndoEntry.Kind.INSERT -> {
+                val before = ic.getTextBeforeCursor(entry.text.length, 0)?.toString().orEmpty()
+                if (before.endsWith(entry.text)) {
+                    ic.deleteSurroundingText(entry.text.length, 0)
+                }
+            }
+            UndoEntry.Kind.DELETE -> {
+                ic.commitText(entry.text, 1)
+            }
+            UndoEntry.Kind.REPLACE -> {
+                // text = original; beforeLen = length of corrected that was inserted
+                val before = ic.getTextBeforeCursor(entry.beforeLen, 0)?.toString().orEmpty()
+                if (before.length == entry.beforeLen) {
+                    ic.deleteSurroundingText(entry.beforeLen, 0)
+                    ic.commitText(entry.text, 1)
+                }
+            }
+        }
+        showKeyboardPanel()
     }
 
     override fun onDestroy() {
