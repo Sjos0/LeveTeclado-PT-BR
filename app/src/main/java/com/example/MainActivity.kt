@@ -135,6 +135,12 @@ class MainActivity : Activity() {
         ) { showCorrectionsDialog() })
 
         listContainer.addView(createSettingsItem(
+            iconRes = R.drawable.ic_settings_keyboard,
+            title = "Símbolos e Layout",
+            subtitle = "Linha numérica, ?123 e atalhos"
+        ) { showSymbolsDialog() })
+
+        listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_dictionary,
             title = "Dicionário",
             subtitle = "Dicionário offline pt-BR"
@@ -484,7 +490,7 @@ class MainActivity : Activity() {
 
         val switchAutoCorrect = Switch(this).apply {
             text = "Autocorreção conservadora"
-            setTextColor(Color.parseColor("#F4F4F5"))
+            setTextColor(Color.parseColor("#202124"))
             textSize = 16f
             isChecked = prefs.autoCorrection
             setOnCheckedChangeListener { _, isChecked ->
@@ -493,7 +499,7 @@ class MainActivity : Activity() {
         }
         val autoCorrectSub = TextView(this).apply {
             text = "Corrige apenas erros nítidos e restaura acentos seguros (ex: 'voce' → 'você', 'nao' → 'não'). Palavras válidas são sempre preservadas."
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(16))
         }
@@ -591,7 +597,7 @@ class MainActivity : Activity() {
 
         val versionInfo = TextView(this).apply {
             text = "Versão atual instalada: v${result.currentVersion}\nVersão mais recente: v${result.latestVersion}"
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13.5f
             setLineSpacing(0f, 1.2f)
             setPadding(0, 0, 0, dp(12))
@@ -600,7 +606,7 @@ class MainActivity : Activity() {
 
         val notesTitle = TextView(this).apply {
             text = "Novidades:"
-            setTextColor(Color.parseColor("#F4F4F5"))
+            setTextColor(Color.parseColor("#202124"))
             textSize = 15f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setPadding(0, 0, 0, dp(8))
@@ -609,7 +615,7 @@ class MainActivity : Activity() {
 
         val notesView = TextView(this).apply {
             text = markdownToSpanned(result.releaseNotes.ifBlank { "Melhorias e correções." })
-            setTextColor(Color.parseColor("#CBD5E1"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13.5f
             setLineSpacing(dp(2).toFloat(), 1.18f)
             setTextIsSelectable(true)
@@ -744,7 +750,7 @@ class MainActivity : Activity() {
                         sb.append(line.substring(i + 1, close))
                         sb.setSpan(TypefaceSpan("monospace"), startIdx, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                         sb.setSpan(
-                            ForegroundColorSpan(Color.parseColor("#93C5FD")),
+                            ForegroundColorSpan(Color.parseColor("#1967D2")),
                             startIdx,
                             sb.length,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -771,7 +777,7 @@ class MainActivity : Activity() {
 
         val info = TextView(this).apply {
             text = "Cole sua chave da API Groq (gsk_…). Ela fica salva só neste aparelho e é usada para transcrever o áudio do microfone do teclado (Whisper)."
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13f
             setPadding(0, 0, 0, dp(12))
         }
@@ -779,9 +785,9 @@ class MainActivity : Activity() {
 
         val input = EditText(this).apply {
             hint = "gsk_..."
-            setHintTextColor(Color.parseColor("#64748B"))
-            setTextColor(Color.parseColor("#F4F4F5"))
-            setBackgroundColor(Color.parseColor("#262C36"))
+            setHintTextColor(Color.parseColor("#9AA0A6"))
+            setTextColor(Color.parseColor("#202124"))
+            setBackgroundColor(Color.parseColor("#F1F3F4"))
             setPadding(dp(12), dp(12), dp(12), dp(12))
             setText(prefs.groqApiKey)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
