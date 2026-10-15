@@ -147,66 +147,63 @@ class CompactTrieEngine(bytes: ByteArray) {
         "bebe", "bebê", "pais", "país", "nós", "robôs", "vocês", "pés"
     )
 
+    /** Nomes próprios e estrangeirismos que nunca podem ser o ALVO de uma autocorreção (ver stoplist_names.txt). */
+    private val names = setOf("francois", "françois", "roma", "victor", "max")
+
     fun getAutoCorrection(prevWord: String, typedWord: String): String? {
         val clean = typedWord.trim()
         if (clean.length < 3) return null
 
         val typedLower = clean.lowercase()
 
-        // 0. Proteção: Stoplist e palavras que NUNCA devem ser alteradas
+        // 0. Proteção: stoplist e palavras que NUNCA devem ser alteradas
         if (stoplist.contains(typedLower)) return null
 
         // Se já for uma palavra válida exatamente no dicionário, NÃO corrige!
         if (isWord(typedLower)) return null
 
-        // Palavras com até 4 letras nunca são corrigidas por distância de edição (apenas acento inequívoco)
         val isShortWord = clean.length <= 4
-
         val typedNorm = normalize(clean)
-        val firstChar = typedNorm[0]
-        val candidateList = buckets[firstChar] ?: return null
+        // Palavra já digitada com acento (ex.: "dá", "às") não sofre correção de acento
+        val typedHasAccent = typedLower != typedNorm
 
-        // 1. Correção de acento: se digitou sem acento (ex: 'nao' -> 'não', 'voce' -> 'você', 'ate' -> 'até')
-        val accentCandidates = candidateList.filter { it.norm == typedNorm }
-        if (accentCandidates.size == 1) {
-            val candidate = accentCandidates[0]
-            // Apenas se a forma candidata for substancialmente frequente
-            if (candidate.freq >= 12000) {
-                return candidate.exact
+        // 1. Correção de acento: 'nao' -> 'não', 'voce' -> 'você', 'mae' -> 'mãe'
+        if (!typedHasAccent) {
+            val accentCandidates = unigrams.filter { it.norm == typedNorm }
+            if (accentCandidates.size == 1) {
+                val candidate = accentCandidates[0]
+                if (candidate.freq >= 12000) return candidate.exact
+            } else if (accentCandidates.size > 1) {
+                // Ambiguidade (ex.: 'po' -> pó/pô): NUNCA substitui automaticamente no espaço
+                return null
             }
-        } else if (accentCandidates.size > 1) {
-            // Ambiguidade (ex: 'po' -> pó/pô, 'vo' -> vó/vô): NUNCA substitui automaticamente no espaço!
-            return null
         }
 
-        // Se for palavra curta (<= 4 letras), regra geral: NUNCA corrige por distância de edição
+        // Palavras com até 4 letras nunca sofrem correção por distância de edição
         if (isShortWord) return null
 
-        // 2. Distância de edição conservadora (apenas para palavras >= 5 letras, distância 1 e alta frequência)
+        // 2. Erro de digitação plausível (ver isPlausibleTypo), só para palavras frequentes
         val prevNorm = normalize(prevWord.trim())
         var bestCandidate: Pair<String, Int>? = null
 
-        for (u in candidateList) {
-            if (kotlin.math.abs(typedNorm.length - u.norm.length) > 1) continue
-            if (stoplist.contains(u.exact.lowercase())) continue
+        for (u in unigrams) {
+            if (names.contains(u.exact.lowercase())) continue
+            if (u.freq < 20000 || !isPlausibleTypo(typedNorm, u.norm)) continue
 
-            val dist = levenshtein(typedNorm, u.norm)
-            if (dist == 1 && u.freq >= 20000) { // Limiar elevado para evitar falsos positivos
-                var score = u.freq
-                if (prevNorm.isNotEmpty()) {
-                    val list = bigramsByPrev[prevNorm]
-                    if (list != null) {
-                        for ((nextW, wWeight) in list) {
-                            if (nextW.equals(u.exact, ignoreCase = true)) {
-                                score += wWeight * 2
-                            }
+            var score = u.freq
+            if (prevNorm.isNotEmpty()) {
+                val list = bigramsByPrev[prevNorm]
+                if (list != null) {
+                    for ((nextW, wWeight) in list) {
+                        if (nextW.equals(u.exact, ignoreCase = true)) {
+                            score += wWeight * 2
                         }
                     }
                 }
+            }
 
-                if (bestCandidate == null || score > bestCandidate.second) {
-                    bestCandidate = Pair(u.exact, score)
-                }
+            if (bestCandidate == null || score > bestCandidate.second) {
+                bestCandidate = Pair(u.exact, score)
             }
         }
 
@@ -230,26 +227,61 @@ class CompactTrieEngine(bytes: ByteArray) {
         return sb.toString()
     }
 
-    private fun levenshtein(a: String, b: String): Int {
-        val m = a.length
-        val n = b.length
-        if (m == 0) return n
-        if (n == 0) return m
+    /** Posição aproximada de uma letra num teclado QWERTY: (x em quartos de tecla, linha). */
+    private fun keyPosition(c: Char): Pair<Int, Int>? {
+        val rows = arrayOf(
+            Triple("qwertyuiop", 0, 0),
+            Triple("asdfghjkl", 1, 1),
+            Triple("zxcvbnm", 3, 2)
+        )
+        for ((letters, offset, line) in rows) {
+            val col = letters.indexOf(c)
+            if (col >= 0) return Pair(col * 4 + offset, line)
+        }
+        return null
+    }
 
-        val dp = Array(m + 1) { IntArray(n + 1) }
-        for (i in 0..m) dp[i][0] = i
-        for (j in 0..n) dp[0][j] = j
+    /** Duas letras são vizinhas se estão na mesma tecla ou em teclas encostadas. */
+    private fun areNeighborKeys(a: Char, b: Char): Boolean {
+        if (a == b) return false
+        val pa = keyPosition(a) ?: return false
+        val pb = keyPosition(b) ?: return false
+        return kotlin.math.abs(pa.second - pb.second) <= 1 && kotlin.math.abs(pa.first - pb.first) <= 4
+    }
 
-        for (i in 1..m) {
-            for (j in 1..n) {
-                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                dp[i][j] = minOf(
-                    dp[i - 1][j] + 1,
-                    dp[i][j - 1] + 1,
-                    dp[i - 1][j - 1] + cost
-                )
+    /**
+     * Verdadeiro só para erros de digitação plausíveis de [candidate]:
+     * tecla vizinha errada ("abracp" -> "abraco"), duas letras trocadas de lugar ("ontme" -> "ontem")
+     * ou uma letra dobrada a mais/menos ("muuito" -> "muito").
+     * Trocar uma letra por outra não vizinha, ou acrescentar/remover letra não dobrada, NÃO é erro
+     * típico de digitação ("parar" -> "para", "disso" -> "isso", "muita" -> "muito") e fica de fora.
+     */
+    private fun isPlausibleTypo(typed: String, candidate: String): Boolean {
+        if (typed.length == candidate.length) {
+            val diffs = typed.indices.filter { typed[it] != candidate[it] }
+            return when (diffs.size) {
+                1 -> areNeighborKeys(typed[diffs[0]], candidate[diffs[0]])
+                2 -> {
+                    val i = diffs[0]
+                    val j = diffs[1]
+                    j == i + 1 && typed[i] == candidate[j] && typed[j] == candidate[i]
+                }
+                else -> false
             }
         }
-        return dp[m][n]
+
+        val longer: String
+        val shorter: String
+        when {
+            typed.length == candidate.length + 1 -> { longer = typed; shorter = candidate }
+            candidate.length == typed.length + 1 -> { longer = candidate; shorter = typed }
+            else -> return false
+        }
+
+        return longer.indices.any { j ->
+            val doubled = (j > 0 && longer[j] == longer[j - 1]) ||
+                (j + 1 < longer.length && longer[j] == longer[j + 1])
+            doubled && longer.removeRange(j, j + 1) == shorter
+        }
     }
 }

@@ -21,20 +21,16 @@ object NativeEngine {
 
     fun init(context: Context): Boolean {
         return try {
-            val assetManager = context.assets
-            val bytes = assetManager.open("dict_pt_br.bin").use { it.readBytes() }
+            val bytes = context.assets.open("dict_pt_br.bin").use { it.readBytes() }
 
-            if (isNativeLoaded) {
-                val success = nativeInit(bytes)
-                if (success) {
-                    Log.i(TAG, "Dicionário binário inicializado no núcleo Rust com sucesso.")
-                    return true
-                }
-            }
-
-            // Fallback Kotlin para compatibilidade total
+            // O motor Kotlin é sempre carregado: ele faz a autocorreção (ver getAutoCorrection)
             fallbackEngine = CompactTrieEngine(bytes)
-            Log.i(TAG, "Dicionário binário inicializado no CompactTrieEngine (Kotlin).")
+
+            if (isNativeLoaded && nativeInit(bytes)) {
+                Log.i(TAG, "Dicionário binário inicializado no núcleo Rust com sucesso.")
+            } else {
+                Log.i(TAG, "Dicionário binário inicializado no CompactTrieEngine (Kotlin).")
+            }
             true
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao carregar dict_pt_br.bin: ${e.message}", e)
@@ -57,13 +53,10 @@ object NativeEngine {
     }
 
     fun getAutoCorrection(prevWord: String, typedWord: String): String? {
-        if (isNativeLoaded) {
-            try {
-                return nativeGetAutoCorrection(prevWord, typedWord)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Falha na chamada JNI nativeGetAutoCorrection: ${t.message}")
-            }
-        }
+        // A autocorreção roda no motor Kotlin, que tem a versão atual das regras (ver suggest.rs).
+        // A libkeyboard_core.so commitada não contém as strings da stoplist atual, então parece ter sido
+        // compilada de uma versão anterior. Depois de recompilar a partir de rust-core/ (cargo-ndk),
+        // dá para voltar a usar nativeGetAutoCorrection aqui.
         return fallbackEngine?.getAutoCorrection(prevWord, typedWord)
     }
 

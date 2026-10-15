@@ -10,6 +10,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 // import androidx.core.content.ContextCompat
 import android.widget.Toast
 import android.view.Gravity
@@ -30,6 +32,8 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
 
     private lateinit var prefs: KeyboardPreferences
     private var voiceHelper: VoiceInputHelper? = null
+    private var transcribing = false
+    private val voiceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var recordingOverlay: FrameLayout? = null
     private var amplitudeView: TextView? = null
     private var statusLabel: TextView? = null
@@ -369,10 +373,17 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         super.onFinishInputView(finishingInput)
         commitComposingText()
         lastAutoCorrection = null
+        // Teclado escondido: cancela a gravação para o microfone não continuar aberto
+        if (voiceHelper?.isRecording == true) {
+            mainHandler.removeCallbacks(amplitudeRunnable)
+            voiceHelper?.cancel()
+            hideRecordingOverlay()
+        }
     }
 
 
     private fun onMicTapped() {
+        if (transcribing) return // ainda transcrevendo a gravação anterior
         if (voiceHelper?.isRecording == true) {
             finishRecordingAndTranscribe()
             return
@@ -423,6 +434,8 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
     }
 
     private fun finishRecordingAndTranscribe() {
+        // Toque duplo no ■: só a primeira chamada vale, a gravação já foi encerrada
+        if (transcribing || voiceHelper?.isRecording != true) return
         mainHandler.removeCallbacks(amplitudeRunnable)
         val file = voiceHelper?.stop()
         statusLabel?.text = "Transcrevendo…"
@@ -433,11 +446,16 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
             return
         }
         val apiKey = prefs.groqApiKey
-        CoroutineScope(Dispatchers.Main).launch {
-            val result = GroqSpeechClient.transcribe(apiKey, file)
-            try {
-                file.delete()
-            } catch (_: Exception) {
+        transcribing = true
+        voiceScope.launch {
+            val result = try {
+                GroqSpeechClient.transcribe(apiKey, file)
+            } finally {
+                transcribing = false
+                try {
+                    file.delete()
+                } catch (_: Exception) {
+                }
             }
             hideRecordingOverlay()
             when (result) {
@@ -536,6 +554,7 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         mainHandler.removeCallbacks(amplitudeRunnable)
         voiceHelper?.cancel()
         hideRecordingOverlay()
+        voiceScope.cancel()
         super.onDestroy()
     }
 

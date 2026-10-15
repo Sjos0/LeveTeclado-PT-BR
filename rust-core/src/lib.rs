@@ -105,4 +105,38 @@ mod tests {
         assert_eq!(get_auto_correction(&dict, "", "xyzqwk"), None);
         assert_eq!(get_auto_correction(&dict, "", "ab"), None); // curto demais
     }
+
+    /// Dicionário real empacotado no app (mesmo arquivo lido pelo teclado).
+    fn real_dict() -> Dictionary {
+        Dictionary::from_bytes(include_bytes!("../../app/src/main/assets/dict_pt_br.bin"))
+            .expect("dict_pt_br.bin válido")
+    }
+
+    #[test]
+    fn test_real_dictionary_never_swaps_valid_words() {
+        // Regressão: estas palavras estavam sendo trocadas por outra ao pressionar espaço.
+        let dict = real_dict();
+        for w in [
+            "parar", "muita", "quanto", "estar", "dessa", "desse", "disso", "nessa",
+            "nisso", "daqui", "casal", "fazem", "entra", "tempos", "dá", "às",
+        ] {
+            assert_eq!(get_auto_correction(&dict, "", w), None, "'{}' é válida e não pode ser trocada", w);
+        }
+    }
+
+    #[test]
+    fn test_real_dictionary_still_fixes_plausible_typos() {
+        let dict = real_dict();
+        assert_eq!(get_auto_correction(&dict, "", "muuito"), Some("muito".to_string()));
+        assert_eq!(get_auto_correction(&dict, "", "obrigaddo"), Some("obrigado".to_string()));
+        assert_eq!(get_auto_correction(&dict, "", "temoo"), Some("tempo".to_string()));
+    }
+
+    #[test]
+    fn test_transposition_and_neighbor_key_typos() {
+        let dict = create_test_dict();
+        assert_eq!(get_auto_correction(&dict, "", "abracp"), Some("abraço".to_string()));
+        // "casal" -> "casa": a letra extra 'l' não é dobrada, então não é erro de digitação plausível
+        assert_eq!(get_auto_correction(&dict, "", "casal"), None);
+    }
 }

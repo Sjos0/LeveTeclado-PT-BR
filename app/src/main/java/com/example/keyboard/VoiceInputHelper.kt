@@ -30,14 +30,25 @@ class VoiceInputHelper(private val context: Context) {
             MediaRecorder()
         }
 
-        mr.setAudioSource(MediaRecorder.AudioSource.MIC)
-        mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-        mr.setAudioEncodingBitRate(64_000)
-        mr.setAudioSamplingRate(16_000)
-        mr.setOutputFile(file.absolutePath)
-        mr.prepare()
-        mr.start()
+        try {
+            mr.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mr.setAudioEncodingBitRate(64_000)
+            mr.setAudioSamplingRate(16_000)
+            mr.setOutputFile(file.absolutePath)
+            mr.prepare()
+            mr.start()
+        } catch (e: Exception) {
+            // Se a gravação não começou, libera o microfone para a próxima tentativa não falhar
+            try {
+                mr.release()
+            } catch (_: Exception) {
+            }
+            file.delete()
+            outputFile = null
+            throw e
+        }
 
         recorder = mr
         recording = true

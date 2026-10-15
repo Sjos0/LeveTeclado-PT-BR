@@ -63,4 +63,23 @@ class KeyboardEngineTest {
         assertEquals("mãe", engine.getAutoCorrection("", "mae"))
         assertEquals("até", engine.getAutoCorrection("", "ate"))
     }
+    @Test
+    fun testRegressao_palavrasValidasNaoSaoTrocadas() {
+        // Palavras corretas e comuns que estavam sendo trocadas por outra ao pressionar espaço
+        val validas = listOf(
+            "parar", "muita", "quanto", "estar", "dessa", "desse", "disso", "nessa",
+            "nisso", "daqui", "casal", "fazem", "entra", "tempos", "dá", "às"
+        )
+        for (word in validas) {
+            assertNull("A palavra '$word' é válida e NÃO pode ser trocada", engine.getAutoCorrection("", word))
+        }
+    }
+
+    @Test
+    fun testTyposPlausiveisAindaSaoCorrigidos() {
+        // Letra dobrada a mais, tecla vizinha e letra dobrada a menos continuam sendo corrigidos
+        assertEquals("muito", engine.getAutoCorrection("", "muuito"))
+        assertEquals("obrigado", engine.getAutoCorrection("", "obrigaddo"))
+        assertEquals("tempo", engine.getAutoCorrection("", "temoo"))
+    }
 }
