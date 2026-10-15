@@ -74,6 +74,12 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 | Microfone | `mic` |
 | Fechar menu | `close` |
 
+
+### Correções de IME (microfone e backspace)
+
+- **Overlay de gravação**: ao gravar por voz, as teclas não usam mais `View.GONE` (isso encolhia a janela do IME e o painel de gravação sumia). Agora a altura é fixada, o teclado fica `INVISIBLE` e o overlay cobre a área com botão **■** para enviar e **Cancelar**.
+- **Backspace com campo vazio**: removido o fallback `KEYCODE_DEL`, que em vários apps fecha o teclado ao apagar o último caractere. Apagar usa só `InputConnection`; com o campo vazio o IME permanece aberto.
+
 ### Mantido da v1.8
 
 - Menu da toolbar (`view_cozy`): Tema, Emoji, Compartilhar, Desfazer
