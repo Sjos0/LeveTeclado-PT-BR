@@ -51,163 +51,120 @@ class MainActivity : Activity() {
             requestMicPermission()
         }
 
+        // Paleta alinhada ao visual de configurações do Gboard (Material claro)
+        val bgPage = Color.parseColor("#F8F9FA")
+        val bgBar = Color.parseColor("#FFFFFF")
+        val textPrimary = Color.parseColor("#202124")
+        val textSecondary = Color.parseColor("#5F6368")
+        val dividerColor = Color.parseColor("#E8EAED")
+        val iconTint = Color.parseColor("#5F6368")
+        val accentBlue = Color.parseColor("#1A73E8")
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212")) // Fundo escuro com alto contraste
+            setBackgroundColor(bgPage)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
 
-        // Barra superior de configurações
+        // App bar estilo Gboard: nome do app + sem botão voltar exagerado
         val appBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#181A1F"))
-            setPadding(dp(12), dp(16), dp(16), dp(16))
+            setBackgroundColor(bgBar)
+            setPadding(dp(20), dp(18), dp(16), dp(18))
+            elevation = 2f * density
         }
-
-        val btnBack = ImageView(this).apply {
-            setImageResource(R.drawable.ic_settings_arrow_back)
-            setColorFilter(Color.parseColor("#E2E8F0"))
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            val typedValue = TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, typedValue, true)
-            setBackgroundResource(typedValue.resourceId)
-            setOnClickListener { finish() }
-        }
-        appBar.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Configurações"
-            textSize = 21f
-            setTextColor(Color.parseColor("#F4F4F5"))
+            text = "Teclado Leve"
+            textSize = 22f
+            setTextColor(textPrimary)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            setPadding(dp(12), 0, 0, 0)
         }
         appBar.addView(headerTitle)
         root.addView(appBar)
 
-        // Lista rolável de opções e cartões de ativação
         val scrollView = ScrollView(this).apply {
             isFillViewport = true
         }
 
         val listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(12), 0, dp(32))
+            setPadding(0, dp(8), 0, dp(28))
         }
 
-        // Área de status e ativação rápida do teclado
+        // Status de ativação (só quando necessário) — equivalente ao setup do Gboard
         statusContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), 0, dp(16), dp(12))
+            setPadding(dp(16), dp(4), dp(16), dp(8))
         }
         listContainer.addView(statusContainer)
 
-        // Campo de teste rápido integrado para testar digitação e seleção de símbolos
-        val testCard = createTestInputCard()
-        listContainer.addView(testCard)
+        // Campo de teste discreto (Gboard também permite testar o teclado nas configs)
+        listContainer.addView(createTestInputCard())
 
-        // Linha divisória sutil
-        val divider1 = View(this).apply {
-            setBackgroundColor(Color.parseColor("#27272A"))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
-                setMargins(0, dp(12), 0, dp(6))
-            }
-        }
-        listContainer.addView(divider1)
+        listContainer.addView(createSectionDivider())
 
-        // 1. Idiomas
+        // Ordem alinhada ao Gboard: Idiomas → Preferências → Tema → Correção →
+        // Dicionário → Digitação por voz → Privacidade → Sobre (+ atualizações)
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_language,
             title = "Idiomas",
-            subtitle = "Português (Brasil) (QWERTY com tecla 'ç')"
-        ) {
-            showLanguageDialog()
-        })
+            subtitle = "Português (Brasil)"
+        ) { showLanguageDialog() })
 
-        // 2. Preferências
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_preferences,
             title = "Preferências",
-            subtitle = "Vibração ao toque, resposta tátil, sons"
-        ) {
-            showPreferencesDialog()
-        })
+            subtitle = "Vibração, layout e atalhos"
+        ) { showPreferencesDialog() })
 
-        // 3. Tema
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_theme,
             title = "Tema",
-            subtitle = "Grafite e Cobalto (otimizado para bateria OLED/LCD)"
-        ) {
-            showThemeDialog()
-        })
+            subtitle = themeSubtitle()
+        ) { showThemeDialog() })
 
-        // 4. Correção de texto
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_correction,
             title = "Correção de texto",
-            subtitle = "Autocorreção conservadora, restauração de acentos"
-        ) {
-            showCorrectionsDialog()
-        })
+            subtitle = "Autocorreção e capitalização"
+        ) { showCorrectionsDialog() })
 
-        // 5. Símbolos e Layout
-        listContainer.addView(createSettingsItem(
-            iconRes = R.drawable.ic_settings_keyboard,
-            title = "Símbolos e Layout",
-            subtitle = "Linha de números dedicada, tecla ?123 e atalhos rápidos"
-        ) {
-            showSymbolsDialog()
-        })
-
-        // 6. Dicionário
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_dictionary,
             title = "Dicionário",
-            subtitle = "Dicionário offline pt-BR compacto (~8.3 KB)"
-        ) {
-            showDictionaryDialog()
-        })
+            subtitle = "Dicionário offline pt-BR"
+        ) { showDictionaryDialog() })
 
-        // 7. Fala → texto (Groq Whisper)
         listContainer.addView(createSettingsItem(
-            iconRes = R.drawable.ic_settings_preferences,
-            title = "Fala → texto (IA)",
-            subtitle = if (prefs.groqApiKey.isNotBlank()) "API Groq configurada • Toque para editar a chave" else "Cole a chave da API Groq para transcrever voz"
-        ) {
-            showSpeechToTextDialog()
-        })
+            iconRes = R.drawable.ic_toolbar_mic,
+            title = "Digitação por voz",
+            subtitle = if (prefs.groqApiKey.isNotBlank()) "Groq Whisper configurado" else "Configure a chave da API Groq"
+        ) { showSpeechToTextDialog() })
 
-        // 8. Verificar atualizações
+        listContainer.addView(createSectionDivider())
+
+        listContainer.addView(createSettingsItem(
+            iconRes = R.drawable.ic_settings_privacy,
+            title = "Privacidade",
+            subtitle = "Processamento local e dados"
+        ) { showPrivacyDialog() })
+
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_update,
             title = "Verificar atualizações",
-            subtitle = "Versão instalada: v${BuildConfig.VERSION_NAME} • Varredura no GitHub"
-        ) {
-            checkAppUpdates(showFeedbackIfLatest = true)
-        })
+            subtitle = "Versão ${BuildConfig.VERSION_NAME}"
+        ) { checkAppUpdates(showFeedbackIfLatest = true) })
 
-        // 8. Privacidade
-        listContainer.addView(createSettingsItem(
-            iconRes = R.drawable.ic_settings_privacy,
-            title = "Privacidade e Segurança",
-            subtitle = "100% offline • Sem coleta de dados ou histórico"
-        ) {
-            showPrivacyDialog()
-        })
-
-        // 9. Sobre
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_info,
             title = "Sobre",
-            subtitle = "Teclado Leve PT-BR v${BuildConfig.VERSION_NAME} • RAM < 10 MB"
-        ) {
-            showAboutDialog()
-        })
+            subtitle = "Teclado Leve PT-BR v${BuildConfig.VERSION_NAME}"
+        ) { showAboutDialog() })
 
         scrollView.addView(listContainer)
         root.addView(scrollView)
@@ -235,26 +192,26 @@ class MainActivity : Activity() {
             // Cartão de Ativação Passo 1
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.parseColor("#1F242C"))
+                setBackgroundColor(Color.parseColor("#E8F0FE"))
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
             val title = TextView(this).apply {
-                text = "Etapa 1: Ativar nos métodos de entrada"
-                setTextColor(Color.parseColor("#F4F4F5"))
+                text = "Ativar o Teclado Leve"
+                setTextColor(Color.parseColor("#174EA6"))
                 textSize = 15.5f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
             val desc = TextView(this).apply {
                 text = "Habilite o Teclado Leve PT-BR para poder usá-lo em qualquer aplicativo."
-                setTextColor(Color.parseColor("#94A3B8"))
+                setTextColor(Color.parseColor("#5F6368"))
                 textSize = 13f
                 setPadding(0, dp(4), 0, dp(10))
             }
             val btn = Button(this).apply {
                 text = "Ativar nas Configurações"
                 setTextColor(Color.WHITE)
-                setBackgroundColor(Color.parseColor("#3B82F6"))
+                setBackgroundColor(Color.parseColor("#1A73E8"))
                 setOnClickListener {
                     startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
                 }
@@ -267,26 +224,26 @@ class MainActivity : Activity() {
             // Cartão de Seleção Passo 2
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.parseColor("#1F242C"))
+                setBackgroundColor(Color.parseColor("#E8F0FE"))
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
             val title = TextView(this).apply {
-                text = "Etapa 2: Definir como teclado padrão"
-                setTextColor(Color.parseColor("#F4F4F5"))
+                text = "Selecionar como teclado padrão"
+                setTextColor(Color.parseColor("#174EA6"))
                 textSize = 15.5f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
             val desc = TextView(this).apply {
                 text = "Selecione o Teclado Leve PT-BR como método de digitação principal."
-                setTextColor(Color.parseColor("#94A3B8"))
+                setTextColor(Color.parseColor("#5F6368"))
                 textSize = 13f
                 setPadding(0, dp(4), 0, dp(10))
             }
             val btn = Button(this).apply {
                 text = "Selecionar como Padrão"
                 setTextColor(Color.WHITE)
-                setBackgroundColor(Color.parseColor("#10B981"))
+                setBackgroundColor(Color.parseColor("#1A73E8"))
                 setOnClickListener {
                     imm.showInputMethodPicker()
                 }
@@ -300,7 +257,7 @@ class MainActivity : Activity() {
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(Color.parseColor("#15231E"))
+                setBackgroundColor(Color.parseColor("#E6F4EA"))
                 setPadding(dp(16), dp(12), dp(16), dp(12))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
@@ -311,8 +268,8 @@ class MainActivity : Activity() {
                 setPadding(0, 0, dp(12), 0)
             }
             val statusText = TextView(this).apply {
-                text = "Teclado Ativo e Padrão no Sistema"
-                setTextColor(Color.parseColor("#E2E8F0"))
+                text = "Teclado ativo e definido como padrão"
+                setTextColor(Color.parseColor("#137333"))
                 textSize = 14f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
@@ -322,40 +279,61 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun themeSubtitle(): String {
+        val id = try { prefs.themeId } catch (_: Exception) { 0 }
+        return when (id) {
+            1 -> "OLED Preto"
+            2 -> "Ardósia Azul"
+            else -> "Grafite e Cobalto"
+        }
+    }
+
+    private fun createSectionDivider(): View {
+        return View(this).apply {
+            setBackgroundColor(Color.parseColor("#E8EAED"))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
+            ).apply {
+                setMargins(0, dp(8), 0, dp(8))
+            }
+        }
+    }
+
     private fun createTestInputCard(): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#1B2028"))
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.setMargins(dp(16), 0, dp(16), 0)
+            setBackgroundColor(Color.parseColor("#FFFFFF"))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(dp(16), dp(4), dp(16), dp(8))
             layoutParams = params
         }
 
         val title = TextView(this).apply {
-            text = "Testar digitação e seleção de símbolos"
-            setTextColor(Color.parseColor("#F4F4F5"))
-            textSize = 14.5f
+            text = "Testar o teclado"
+            setTextColor(Color.parseColor("#202124"))
+            textSize = 14f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
-        val desc = TextView(this).apply {
-            text = "Toque abaixo para abrir o teclado, testar a velocidade e o botão ?123:"
-            setTextColor(Color.parseColor("#94A3B8"))
-            textSize = 12.5f
-            setPadding(0, dp(2), 0, dp(10))
-        }
-
         val editTest = EditText(this).apply {
-            hint = "Digite rapidamente aqui..."
-            setHintTextColor(Color.parseColor("#64748B"))
-            setTextColor(Color.parseColor("#F4F4F5"))
-            setBackgroundColor(Color.parseColor("#262C36"))
-            setPadding(dp(12), dp(12), dp(12), dp(12))
+            hint = "Toque para digitar…"
+            setHintTextColor(Color.parseColor("#9AA0A6"))
+            setTextColor(Color.parseColor("#202124"))
+            setBackgroundColor(Color.parseColor("#F1F3F4"))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             textSize = 15f
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.topMargin = dp(8)
+            layoutParams = lp
         }
 
         card.addView(title)
-        card.addView(desc)
         card.addView(editTest)
         return card
     }
@@ -369,18 +347,21 @@ class MainActivity : Activity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setBackgroundColor(Color.parseColor("#FFFFFF"))
+            setPadding(dp(20), dp(16), dp(16), dp(16))
             isClickable = true
             isFocusable = true
             val typedValue = TypedValue()
             theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
-            setBackgroundResource(typedValue.resourceId)
+            // ripple sobre fundo branco
+            foreground = getDrawable(typedValue.resourceId)
             setOnClickListener { onClick() }
+            minimumHeight = dp(64)
         }
 
         val icon = ImageView(this).apply {
             setImageResource(iconRes)
-            setColorFilter(Color.parseColor("#CBD5E1"))
+            setColorFilter(Color.parseColor("#5F6368"))
             val iconSize = dp(24)
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                 marginEnd = dp(20)
@@ -396,20 +377,31 @@ class MainActivity : Activity() {
         val titleView = TextView(this).apply {
             text = title
             textSize = 16f
-            setTextColor(Color.parseColor("#F4F4F5"))
+            setTextColor(Color.parseColor("#202124"))
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
         textContainer.addView(titleView)
 
-        val subtitleView = TextView(this).apply {
-            text = subtitle
-            textSize = 13f
-            setTextColor(Color.parseColor("#94A3B8"))
-            setPadding(0, dp(3), 0, 0)
+        if (subtitle.isNotBlank()) {
+            val subtitleView = TextView(this).apply {
+                text = subtitle
+                textSize = 13f
+                setTextColor(Color.parseColor("#5F6368"))
+                setPadding(0, dp(2), 0, 0)
+            }
+            textContainer.addView(subtitleView)
         }
-        textContainer.addView(subtitleView)
 
         row.addView(textContainer)
+
+        // Chevron estilo lista do Gboard
+        val chevron = TextView(this).apply {
+            text = "›"
+            textSize = 22f
+            setTextColor(Color.parseColor("#9AA0A6"))
+            setPadding(dp(8), 0, dp(4), 0)
+        }
+        row.addView(chevron)
         return row
     }
 
@@ -436,7 +428,7 @@ class MainActivity : Activity() {
 
         val switchVibrate = Switch(this).apply {
             text = "Vibração ao tocar teclas"
-            setTextColor(Color.parseColor("#F4F4F5"))
+            setTextColor(Color.parseColor("#202124"))
             textSize = 16f
             isChecked = prefs.vibrateOnPress
             setOnCheckedChangeListener { _, isChecked ->
@@ -445,7 +437,7 @@ class MainActivity : Activity() {
         }
         val vibrateSub = TextView(this).apply {
             text = "Resposta tátil no toque (desativado por padrão para economizar bateria)."
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(16))
         }
@@ -454,7 +446,7 @@ class MainActivity : Activity() {
 
         val switchCap = Switch(this).apply {
             text = "Autocapitalização"
-            setTextColor(Color.parseColor("#F4F4F5"))
+            setTextColor(Color.parseColor("#202124"))
             textSize = 16f
             isChecked = prefs.autoCapitalization
             setOnCheckedChangeListener { _, isChecked ->
@@ -463,7 +455,7 @@ class MainActivity : Activity() {
         }
         val capSub = TextView(this).apply {
             text = "Primeira letra em maiúscula no início de sentenças e após ponto final."
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#5F6368"))
             textSize = 13f
             setPadding(0, dp(2), 0, dp(8))
         }
@@ -800,7 +792,7 @@ class MainActivity : Activity() {
         val micBtn = Button(this).apply {
             text = "Conceder permissão de microfone"
             setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#3B82F6"))
+            setBackgroundColor(Color.parseColor("#1A73E8"))
             setOnClickListener { requestMicPermission() }
         }
         val micPad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
