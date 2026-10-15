@@ -141,7 +141,7 @@ class MainActivity : Activity() {
         ) { showDictionaryDialog() })
 
         listContainer.addView(createSettingsItem(
-            iconRes = R.drawable.ic_toolbar_mic,
+            iconRes = R.drawable.ic_settings_voice,
             title = "Digitação por voz",
             subtitle = if (prefs.groqApiKey.isNotBlank()) "Groq Whisper configurado" else "Configure a chave da API Groq"
         ) { showSpeechToTextDialog() })
@@ -394,12 +394,11 @@ class MainActivity : Activity() {
 
         row.addView(textContainer)
 
-        // Chevron estilo lista do Gboard
-        val chevron = TextView(this).apply {
-            text = "›"
-            textSize = 22f
-            setTextColor(Color.parseColor("#9AA0A6"))
-            setPadding(dp(8), 0, dp(4), 0)
+        // Chevron Material (mesmo padrão visual do Gboard)
+        val chevron = ImageView(this).apply {
+            setImageResource(R.drawable.ic_settings_chevron)
+            val s = dp(24)
+            layoutParams = LinearLayout.LayoutParams(s, s)
         }
         row.addView(chevron)
         return row
