@@ -8,6 +8,12 @@ use crate::suggest::{get_auto_correction, get_suggestions};
 
 static GLOBAL_DICT: Mutex<Option<Dictionary>> = Mutex::new(None);
 
+/// Trava o dicionário global. Se alguma thread tiver entrado em pânico com o lock
+/// (mutex envenenado), usa o conteúdo mesmo assim, em vez de derrubar o processo do teclado.
+fn lock_dict() -> std::sync::MutexGuard<'static, Option<Dictionary>> {
+    GLOBAL_DICT.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[no_mangle]
 pub extern "system" fn Java_com_example_keyboard_NativeEngine_nativeInit(
     env: JNIEnv,
@@ -25,7 +31,7 @@ pub extern "system" fn Java_com_example_keyboard_NativeEngine_nativeInit(
 
     match Dictionary::from_bytes(&bytes) {
         Ok(dict) => {
-            let mut guard = GLOBAL_DICT.lock().unwrap();
+            let mut guard = lock_dict();
             *guard = Some(dict);
             JNI_TRUE
         }
@@ -52,7 +58,7 @@ pub extern "system" fn Java_com_example_keyboard_NativeEngine_nativeGetSuggestio
         String::new()
     };
 
-    let guard = GLOBAL_DICT.lock().unwrap();
+    let guard = lock_dict();
     let suggestions = if let Some(dict) = guard.as_ref() {
         get_suggestions(dict, &prev_str, &prefix_str)
     } else {
@@ -102,7 +108,7 @@ pub extern "system" fn Java_com_example_keyboard_NativeEngine_nativeGetAutoCorre
         String::new()
     };
 
-    let guard = GLOBAL_DICT.lock().unwrap();
+    let guard = lock_dict();
     if let Some(dict) = guard.as_ref() {
         if let Some(correction) = get_auto_correction(dict, &prev_str, &typed_str) {
             if let Ok(j_str) = env.new_string(&correction) {
@@ -125,7 +131,7 @@ pub extern "system" fn Java_com_example_keyboard_NativeEngine_nativeIsWord(
     }
 
     let word_str: String = env.get_string(&word).map(|s| s.into()).unwrap_or_default();
-    let guard = GLOBAL_DICT.lock().unwrap();
+    let guard = lock_dict();
     if let Some(dict) = guard.as_ref() {
         if dict.is_word(&word_str) {
             return JNI_TRUE;
