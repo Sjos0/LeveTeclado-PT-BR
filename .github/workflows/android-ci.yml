@@ -29,7 +29,7 @@ jobs:
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
       - name: Run unit tests and build debug APK
         timeout-minutes: 15
-        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=384m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleDebug
+        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: leve-teclado-debug-${{ github.sha }}
@@ -72,7 +72,7 @@ jobs:
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=384m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease
+        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease
       - name: Verify APK signature
         run: $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose app/build/outputs/apk/release/*.apk
       - name: Publish GitHub release
