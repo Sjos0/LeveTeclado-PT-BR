@@ -126,7 +126,7 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 
 ## Observações técnicas
 
-- Sem dependências novas; linha de tamanho de APK ~11 MB
+- Sem dependências novas; tamanho do APK de release: 2,2 MB (2.203.866 bytes). Os APKs de debug antigos têm cerca de 11 MB porque não passam pela redução de código (R8) do build de release
 - Ícones vetoriais oficiais (viewport 960×960)
 - Preferências em `SharedPreferences` (`MODE_PRIVATE`)
 - Verificação de atualização via API pública do GitHub
