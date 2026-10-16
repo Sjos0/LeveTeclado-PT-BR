@@ -100,11 +100,26 @@ jobs:
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseParallelGC -Dfile.encoding=UTF-8/' gradle.properties
           grep '^org.gradle.jvmargs' gradle.properties
       - name: Test and build signed release
-        timeout-minutes: 15
+        timeout-minutes: 25
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle-release.log"
+      - name: Summarize release build failure
+        if: failure()
+        run: |
+          log="$RUNNER_TEMP/gradle-release.log"
+          if [ ! -f "$log" ]; then
+            echo "::error::O log do Gradle nao foi gerado (falha antes do build)."
+            exit 0
+          fi
+          summary="$(grep -E 'What went wrong|Execution failed|FAILED|error:|Caused by|Missing class|OutOfMemory|Could not|Exception|R8' "$log" | head -25 | sed 's/%/%25/g; s/\r//g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          if [ -z "$summary" ]; then
+            summary="$(tail -n 30 "$log" | sed 's/%/%25/g; s/\r//g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          fi
+          echo "::error::RESUMO DO ERRO DE BUILD: ${summary}"
       - name: Verify APK signature
         run: $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose app/build/outputs/apk/release/*.apk
       - name: Validate release metadata and prepare asset
