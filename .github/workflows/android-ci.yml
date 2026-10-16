@@ -27,6 +27,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Android SDK packages
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+      - name: Use Android's default debug signing config in CI only
+        run: |
+          python3 - <<'PYCODE'
+          p = 'app/build.gradle.kts'
+          s = open(p, encoding='utf-8').read()
+          old = 'signingConfig = signingConfigs.getByName("debugConfig")'
+          new = 'signingConfig = signingConfigs.getByName("debug")'
+          if s.count(old) != 1:
+              raise SystemExit('Expected exactly one custom debug signing assignment')
+          open(p, 'w', encoding='utf-8').write(s.replace(old, new, 1))
+          print('CI working copy uses Android default debug signing; repository source remains unchanged')
+          PYCODE
       - name: Run unit tests and build debug APK
         timeout-minutes: 15
         run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleDebug
