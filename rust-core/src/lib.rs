@@ -139,4 +139,25 @@ mod tests {
         // "casal" -> "casa": a letra extra 'l' não é dobrada, então não é erro de digitação plausível
         assert_eq!(get_auto_correction(&dict, "", "casal"), None);
     }
+
+    #[test]
+    fn test_top_suggestions_without_context() {
+        let dict = create_test_dict();
+        // Sem prefixo e sem contexto: as 3 palavras mais frequentes, em ordem decrescente
+        assert_eq!(get_suggestions(&dict, "", ""), vec!["não", "você", "muito"]);
+    }
+
+    #[test]
+    fn test_top_suggestions_keep_dictionary_order_on_ties() {
+        let mut dict = Dictionary::empty();
+        for w in ["alfa", "beta", "gama", "delta"] {
+            dict.unigrams.push(Unigram {
+                exact: w.to_string(),
+                norm: w.to_string(),
+                freq: 100,
+            });
+        }
+        // Empate de frequência: vale a ordem em que as palavras estão no dicionário
+        assert_eq!(get_suggestions(&dict, "", ""), vec!["alfa", "beta", "gama"]);
+    }
 }

@@ -1,4 +1,4 @@
-use crate::dictionary::{normalize, Dictionary};
+use crate::dictionary::{normalize, Dictionary, Unigram};
 
 /// Nomes próprios e estrangeirismos que nunca podem ser o ALVO de uma autocorreção
 /// (ver stoplist_names.txt). Palavras protegidas como typed-word continuam na stoplist.
@@ -38,6 +38,11 @@ fn are_neighbor_keys(a: char, b: char) -> bool {
 /// dobrada, NÃO é erro típico de digitação: são palavras válidas diferentes
 /// ("parar" -> "para", "disso" -> "isso", "muita" -> "muito"). Por isso ficam de fora.
 fn is_plausible_typo(typed: &str, candidate: &str) -> bool {
+    // Filtro barato por tamanho: rejeita antes de alocar os vetores de caracteres.
+    if typed.chars().count().abs_diff(candidate.chars().count()) > 1 {
+        return false;
+    }
+
     let a: Vec<char> = typed.chars().collect();
     let b: Vec<char> = candidate.chars().collect();
 
@@ -65,6 +70,21 @@ fn is_plausible_typo(typed: &str, candidate: &str) -> bool {
     })
 }
 
+/// Os 3 unigramas de maior frequência, na mesma ordem que um sort estável por frequência
+/// daria (empates mantêm a ordem do dicionário). Não clona nem ordena o vetor inteiro.
+fn top_unigrams(dict: &Dictionary) -> Vec<&Unigram> {
+    let mut top: Vec<&Unigram> = Vec::with_capacity(4);
+    for u in &dict.unigrams {
+        // Primeira posição com frequência estritamente menor: o empate fica depois do existente.
+        let pos = top.iter().position(|t| u.freq > t.freq).unwrap_or(top.len());
+        if pos < 3 {
+            top.insert(pos, u);
+            top.truncate(3);
+        }
+    }
+    top
+}
+
 pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<String> {
     let clean_prefix = prefix.trim();
     let prev_norm = normalize(prev_word.trim());
@@ -73,22 +93,19 @@ pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<
         // Sugestões contextuais baseadas na palavra anterior (bigramas)
         if !prev_norm.is_empty() {
             if let Some(next_list) = dict.bigrams_by_prev.get(&prev_norm) {
-                let mut sorted = next_list.clone();
+                let mut sorted: Vec<&(String, u16)> = next_list.iter().collect();
                 sorted.sort_by(|a, b| b.1.cmp(&a.1));
                 return sorted
                     .into_iter()
-                    .map(|(w, _)| w)
+                    .map(|(w, _)| w.clone())
                     .take(3)
                     .collect();
             }
         }
         // Se não houver contexto, retorna as 3 palavras mais frequentes
-        let mut sorted_unigrams = dict.unigrams.clone();
-        sorted_unigrams.sort_by(|a, b| b.freq.cmp(&a.freq));
-        return sorted_unigrams
+        return top_unigrams(dict)
             .into_iter()
-            .take(3)
-            .map(|u| u.exact)
+            .map(|u| u.exact.clone())
             .collect();
     }
 
@@ -109,14 +126,16 @@ pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<
         std::collections::HashMap::new()
     };
 
-    let mut scored_candidates: Vec<(String, u32)> = Vec::new();
+    // Candidatos emprestam o texto do dicionário (&str); só o resultado final é clonado.
+    let mut scored_candidates: Vec<(&str, u32)> = Vec::new();
 
     for u in &dict.unigrams {
-        if u.norm.starts_with(&prefix_norm) {
+        if u.norm.starts_with(prefix_norm.as_str()) {
+            let exact_lower = u.exact.to_lowercase();
             let mut score = u.freq as u32;
 
             // Bônus de bigrama se a palavra anterior prevê este termo
-            if let Some(&b_score) = bigram_bonuses.get(&u.exact.to_lowercase()) {
+            if let Some(&b_score) = bigram_bonuses.get(exact_lower.as_str()) {
                 score += b_score;
             }
 
@@ -126,11 +145,11 @@ pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<
             }
 
             // Bônus máximo se digitou exatamente igual
-            if u.exact.to_lowercase() == prefix_lower {
+            if exact_lower == prefix_lower {
                 score += 80_000;
             }
 
-            scored_candidates.push((u.exact.clone(), score));
+            scored_candidates.push((u.exact.as_str(), score));
         }
     }
 
@@ -138,10 +157,10 @@ pub fn get_suggestions(dict: &Dictionary, prev_word: &str, prefix: &str) -> Vec<
     scored_candidates.sort_by(|a, b| b.1.cmp(&a.1));
 
     // Deduplicar mantendo a ordem
-    let mut results = Vec::with_capacity(3);
+    let mut results: Vec<String> = Vec::with_capacity(3);
     for (cand, _) in scored_candidates {
-        if !results.contains(&cand) {
-            results.push(cand);
+        if !results.iter().any(|r| r.as_str() == cand) {
+            results.push(cand.to_string());
             if results.len() == 3 {
                 break;
             }
@@ -184,7 +203,7 @@ pub fn get_auto_correction(dict: &Dictionary, prev_word: &str, typed_word: &str)
 
     // 2. Acento faltando (ex.: 'nao' -> 'não', 'voce' -> 'você', 'mae' -> 'mãe')
     if !typed_has_accent {
-        let accent_matches: Vec<&crate::dictionary::Unigram> = dict
+        let accent_matches: Vec<&Unigram> = dict
             .unigrams
             .iter()
             .filter(|u| u.norm == typed_norm)
@@ -211,10 +230,11 @@ pub fn get_auto_correction(dict: &Dictionary, prev_word: &str, typed_word: &str)
     let mut best_candidate: Option<(String, u32)> = None;
 
     for u in &dict.unigrams {
-        if NAMES.contains(&u.exact.to_lowercase().as_str()) {
+        // Filtros puros e baratos primeiro; a checagem de nomes aloca, então roda só para candidatos reais.
+        if u.freq < 20000 || !is_plausible_typo(&typed_norm, &u.norm) {
             continue;
         }
-        if u.freq < 20000 || !is_plausible_typo(&typed_norm, &u.norm) {
+        if NAMES.contains(&u.exact.to_lowercase().as_str()) {
             continue;
         }
 
