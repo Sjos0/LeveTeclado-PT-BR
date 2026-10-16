@@ -125,24 +125,26 @@ jobs:
       - name: Validate release metadata and prepare asset
         run: |
           set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
           apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$apk"
+          [ -n "$apk" ] || fail "Nenhum APK de release encontrado em app/build/outputs/apk/release"
           badging="$($ANDROID_HOME/build-tools/36.0.0/aapt2 dump badging "$apk")"
-          printf '%s\n' "$badging"
-          package_name="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*name='\([^']*\)'.*/\1/p")"
-          test "$package_name" = "com.aistudio.tecladoptbr.kxqpva"
+          pkg_line="$(printf '%s\n' "$badging" | grep '^package:' || true)"
+          echo "::notice::Linha do pacote no APK: ${pkg_line}"
+          package_name="$(printf '%s\n' "$pkg_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          [ "$package_name" = "com.aistudio.tecladoptbr.kxqpva" ] || fail "Pacote errado no APK: '${package_name}'"
           expected_version="${GITHUB_REF_NAME#v}"
-          actual_version="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*versionName='\([^']*\)'.*/\1/p")"
-          test "$actual_version" = "$expected_version"
+          actual_version="$(printf '%s\n' "$pkg_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          [ "$actual_version" = "$expected_version" ] || fail "versionName no APK '${actual_version}' diferente de '${expected_version}'"
           if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
-            actual_code="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*versionCode='\([^']*\)'.*/\1/p")"
-            test "$actual_code" = "10"
+            actual_code="$(printf '%s\n' "$pkg_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+            [ "$actual_code" = "10" ] || fail "versionCode no APK '${actual_code}' diferente de 10"
           fi
           for abi in arm64-v8a armeabi-v7a x86_64; do
-            unzip -l "$apk" | grep >/dev/null "lib/$abi/libkeyboard_core.so"
+            unzip -l "$apk" | grep "lib/$abi/libkeyboard_core.so" >/dev/null || fail "Biblioteca lib/$abi/libkeyboard_core.so ausente no APK"
           done
           unzip -p "$apk" lib/arm64-v8a/libkeyboard_core.so > "$RUNNER_TEMP/libkeyboard_core.so"
-          nm -D "$RUNNER_TEMP/libkeyboard_core.so" | grep >/dev/null 'Java_com_example_keyboard_NativeEngine_nativeGetSuggestions'
+          nm -D "$RUNNER_TEMP/libkeyboard_core.so" | grep 'Java_com_example_keyboard_NativeEngine_nativeGetSuggestions' >/dev/null || fail "Simbolo JNI nativeGetSuggestions ausente na .so arm64"
           asset="teclado-pt-br-${GITHUB_REF_NAME}.apk"
           cp "$apk" "$asset"
           sha256sum "$asset"
