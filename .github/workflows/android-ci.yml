@@ -129,13 +129,13 @@ jobs:
           test -n "$apk"
           badging="$($ANDROID_HOME/build-tools/36.0.0/aapt2 dump badging "$apk")"
           printf '%s\n' "$badging"
-          package_name="$(printf '%s\n' "$badging" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          package_name="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*name='\([^']*\)'.*/\1/p")"
           test "$package_name" = "com.aistudio.tecladoptbr.kxqpva"
           expected_version="${GITHUB_REF_NAME#v}"
-          actual_version="$(printf '%s\n' "$badging" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          actual_version="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*versionName='\([^']*\)'.*/\1/p")"
           test "$actual_version" = "$expected_version"
           if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
-            actual_code="$(printf '%s\n' "$badging" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+            actual_code="$(printf '%s\n' "$badging" | sed -n "/^package:/s/.*versionCode='\([^']*\)'.*/\1/p")"
             test "$actual_code" = "10"
           fi
           for abi in arm64-v8a armeabi-v7a x86_64; do
