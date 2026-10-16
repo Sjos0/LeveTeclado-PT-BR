@@ -106,7 +106,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle-release.log"
+          ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle-release.log"
       - name: Summarize release build failure
         if: failure()
         run: |
