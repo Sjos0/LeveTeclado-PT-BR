@@ -95,6 +95,10 @@ jobs:
         run: cargo test --manifest-path rust-core/Cargo.toml
       - name: Build native libraries from rust-core
         run: cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o app/src/main/jniLibs build -p keyboard-core --release
+      - name: Raise Gradle memory for release build (R8 needs more than the low-RAM default)
+        run: |
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=128m -XX:+UseParallelGC -Dfile.encoding=UTF-8/' gradle.properties
+          grep '^org.gradle.jvmargs' gradle.properties
       - name: Test and build signed release
         timeout-minutes: 15
         env:
