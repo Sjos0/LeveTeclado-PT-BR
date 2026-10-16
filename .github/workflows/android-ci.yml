@@ -131,13 +131,13 @@ jobs:
           badging="$($ANDROID_HOME/build-tools/36.0.0/aapt2 dump badging "$apk")"
           pkg_line="$(printf '%s\n' "$badging" | grep '^package:' || true)"
           echo "::notice::Linha do pacote no APK: ${pkg_line}"
-          package_name="$(printf '%s\n' "$pkg_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          package_name="$(printf '%s\n' "$pkg_line" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
           [ "$package_name" = "com.aistudio.tecladoptbr.kxqpva" ] || fail "Pacote errado no APK: '${package_name}'"
           expected_version="${GITHUB_REF_NAME#v}"
-          actual_version="$(printf '%s\n' "$pkg_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          actual_version="$(printf '%s\n' "$pkg_line" | sed -n "s/.* versionName='\([^']*\)'.*/\1/p")"
           [ "$actual_version" = "$expected_version" ] || fail "versionName no APK '${actual_version}' diferente de '${expected_version}'"
           if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
-            actual_code="$(printf '%s\n' "$pkg_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+            actual_code="$(printf '%s\n' "$pkg_line" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
             [ "$actual_code" = "10" ] || fail "versionCode no APK '${actual_code}' diferente de 10"
           fi
           for abi in arm64-v8a armeabi-v7a x86_64; do
