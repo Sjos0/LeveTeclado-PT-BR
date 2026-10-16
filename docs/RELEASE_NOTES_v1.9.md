@@ -4,7 +4,7 @@
 
 Atualização da **tela de configurações** e dos **ícones** (lista do app e toolbar do teclado), com correções de legibilidade nos diálogos. A base funcional da v1.8 permanece (menu da toolbar, temas, emoji, compartilhar, desfazer e diálogo de atualização).
 
-> **Status:** código em `main`. Versionamento no Gradle ainda em 1.8 / code 9 até o próximo build distribuível (AI Studio). APK 1.9 pendente.
+> **Status:** versão 1.9 (código 10) publicada em GitHub Releases, com APK assinado e bibliotecas nativas recompiladas pelo CI.
 
 ---
 
@@ -99,7 +99,7 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 | Campo | Situação |
 |-------|----------|
 | Código em `main` | Mudanças da 1.9 aplicadas |
-| `versionName` / `versionCode` no Gradle | Ainda **1.8** / **9** (bump **1.9** / **10** no build do AI Studio) |
+| `versionName` / `versionCode` no Gradle | **1.9** / **10** |
 | minSdk | 26 (Android 8.0+) |
 
 ---
@@ -115,9 +115,9 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 
 ---
 
-## Instalação (quando o APK 1.9 estiver pronto)
+## Instalação
 
-1. Com a mesma assinatura da 1.8, a atualização pode substituir direto.  
+1. Esta versão tem assinatura nova: a atualização sobre a 1.8 não funciona. Desinstale a 1.8 antes de instalar a 1.9. As preferências do teclado e a chave Groq são perdidas, e o teclado precisa ser ativado de novo nas configurações.  
 2. Se a assinatura for diferente, desinstale a versão antiga antes.  
 3. Baixe `teclado-pt-br-v1.9.apk` na release.  
 4. Ative o teclado em **Configurações do sistema → Idiomas e entrada → Teclado virtual**, se necessário.
@@ -140,6 +140,6 @@ Baixados de **google/material-design-icons** (sem paths manuais).
 - [x] Legibilidade dos diálogos no tema claro  
 - [x] Item **Símbolos e Layout** acessível no menu  
 - [x] Ícones oficiais (configurações + toolbar)  
-- [ ] Bump `versionCode` 10 / `versionName` 1.9 no Gradle (AI Studio / build de release)  
-- [ ] Build release assinado e APK na tag `v1.9`  
+- [x] Bump `versionCode` 10 / `versionName` 1.9 no Gradle  
+- [x] Build release assinado e APK na tag `v1.9` (feito pelo CI)  
 - [ ] Validar instalação sobre a 1.8 em uso  
