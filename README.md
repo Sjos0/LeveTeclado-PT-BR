@@ -104,9 +104,9 @@ cargo ndk -t arm64-v8a -t armeabi-v7a -o app/src/main/jniLibs build -p keyboard-
 
 ### 2. Compilar o APK com Gradle
 ```bash
-gradle assembleRelease
+./gradlew assembleRelease
 # ou para versão de desenvolvimento:
-gradle assembleDebug
+./gradlew assembleDebug
 ```
 
 ---

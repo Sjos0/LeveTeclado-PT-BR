@@ -56,6 +56,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test-build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -90,10 +91,45 @@ jobs:
         run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testReleaseUnitTest assembleRelease
       - name: Verify APK signature
         run: $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose app/build/outputs/apk/release/*.apk
+      - name: Validate release metadata and prepare asset
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$apk"
+          badging="$($ANDROID_HOME/build-tools/36.0.0/aapt2 dump badging "$apk")"
+          printf '%s\n' "$badging"
+          package_name="$(printf '%s\n' "$badging" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          test "$package_name" = "com.aistudio.tecladoptbr.kxqpva"
+          expected_version="${GITHUB_REF_NAME#v}"
+          actual_version="$(printf '%s\n' "$badging" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          test "$actual_version" = "$expected_version"
+          if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
+            actual_code="$(printf '%s\n' "$badging" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+            test "$actual_code" = "10"
+          fi
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            unzip -l "$apk" | grep -q "lib/$abi/libkeyboard_core.so"
+          done
+          unzip -p "$apk" lib/arm64-v8a/libkeyboard_core.so > "$RUNNER_TEMP/libkeyboard_core.so"
+          nm -D "$RUNNER_TEMP/libkeyboard_core.so" | grep -q 'Java_com_example_keyboard_NativeEngine_nativeGetSuggestions'
+          asset="teclado-pt-br-${GITHUB_REF_NAME}.apk"
+          cp "$apk" "$asset"
+          sha256sum "$asset"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" app/build/outputs/apk/release/*.apk --title "Leve Teclado $GITHUB_REF_NAME" --generate-notes
+        run: |
+          set -euo pipefail
+          asset="teclado-pt-br-${GITHUB_REF_NAME}.apk"
+          if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
+            gh release create "$GITHUB_REF_NAME" "$asset" \
+              --title "Teclado Leve PT-BR v1.9 — Configurações Material e ícones oficiais" \
+              --notes-file docs/RELEASE_NOTES_v1.9.md
+          else
+            gh release create "$GITHUB_REF_NAME" "$asset" \
+              --title "Leve Teclado $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
       - if: always()
         name: Remove temporary signing key
         run: rm -f "$RUNNER_TEMP/release-key.jks"
