@@ -24,3 +24,8 @@ local.properties
 .env
 debug.keystore
 debug.keystore.base64
+
+# Keystores e senhas de assinatura nunca vão para o repositório
+*.jks
+*.keystore
+keystore.properties
