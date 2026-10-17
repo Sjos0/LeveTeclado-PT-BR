@@ -1,6 +1,8 @@
 package com.example
 
 import android.app.Activity
+import android.content.Context
+import android.view.inputmethod.InputMethodManager
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.EditText
@@ -18,6 +20,11 @@ class DevTypingActivity : Activity() {
         }
         setContentView(edit)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
-        edit.post { edit.requestFocus() }
+        edit.post {
+            edit.requestFocus()
+            // Mostra o teclado de verdade (o IME precisa estar visível para medir o serviço)
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(edit, InputMethodManager.SHOW_FORCED)
+        }
     }
 }
