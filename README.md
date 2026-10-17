@@ -52,7 +52,7 @@ Quando você usa a digitação por voz, o áudio gravado é enviado à Groq para
 - **Dicionário:** `app/src/main/assets/dict_pt_br.bin`, gerado por `scripts/build_dictionary.py`.
 - **Fontes:** Projeto VERO (LGPL v3.0 / MPL 1.1) e FrequencyWords (OpenSubtitles 2018, CC BY-SA 4.0). Detalhes em `NOTICE`.
 - **Dicionário binário:** distribuído sob **CC BY-SA 4.0**, conforme `NOTICE`.
-- **Código-fonte:** **licença ainda não definida.** O repositório não tem arquivo `LICENSE`. Versões anteriores deste README citavam MIT ou Apache 2.0, mas isso não estava refletido no repositório.
+- **Código-fonte:** **MIT** (ver `LICENSE`).
 
 ---
 
@@ -132,4 +132,3 @@ Procure a linha `TOTAL PSS`. Os valores variam conforme o aparelho e a versão d
 - **Autocorreção nativa:** a função `nativeGetAutoCorrection` existe em Rust, mas não é usada. Trocar o motor exige testes no aparelho, porque o resultado precisa ser igual ao do motor Kotlin.
 - **Dicionário carregado duas vezes** (Kotlin e Rust). Só dá para remover depois da troca acima.
 - **Dicionário maior:** o formato atual guarda uma `String` por palavra. Com um vocabulário grande, o ideal é um blob com offsets, lido por fatias.
-- **Licença do código:** a definir pelo autor.
