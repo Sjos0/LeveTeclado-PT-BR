@@ -27,9 +27,18 @@ log "Instalação:"
 inst=$(adb install -r "$APK" 2>&1 | tr -d '\r')
 log "  $inst"
 
-log "Ativando o Termclado como teclado:"
-log "  enable: $(adb shell ime enable "$IME" 2>&1 | tr -d '\r' | tr '\n' ' ')"
-log "  set:    $(adb shell ime set "$IME" 2>&1 | tr -d '\r' | tr '\n' ' ')"
+log "Lista de IMEs instalados (diagnóstico):"
+adb shell ime list -a -s 2>&1 | tr -d '\r' | head -5 | while read -r l; do log "  $l"; done
+
+log "Ativando o Termclado como teclado (com novas tentativas):"
+ativo=0
+for tentativa in 1 2 3 4 5 6 7 8 9 10; do
+  saida=$(adb shell ime enable "$IME" 2>&1 | tr -d '\r' | tr '\n' ' ')
+  if ! echo "$saida" | grep -q "Unknown input method"; then ativo=1; break; fi
+  sleep 4
+done
+log "  enable após $tentativa tentativa(s): $([ "$ativo" = 1 ] && echo ok || echo 'FALHOU')"
+log "  set: $(adb shell ime set "$IME" 2>&1 | tr -d '\r' | tr '\n' ' ')"
 
 log "Abrindo o campo de teste:"
 log "  $(adb shell am start -W -n "$PKG/com.example.DevTypingActivity" 2>&1 | tr -d '\r' | tr '\n' ' ')"

@@ -3,14 +3,15 @@ name: Desempenho no emulador (RAM e armazenamento)
 on:
   workflow_dispatch: {}
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   perf:
     name: Medir RAM e armazenamento no emulador
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -61,14 +62,11 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
           script: bash scripts/perf/medir.sh perf-results app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Publicar resumo
+      - name: Publicar resumo na página da execução
         if: always()
         run: |
           if [ -f perf-results/resumo.txt ]; then
             { echo '## Resultado de desempenho (emulador)'; echo '```'; cat perf-results/resumo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f perf-results/resumo.txt ]; then
-            while IFS= read -r linha; do echo "::notice::$linha"; done < perf-results/resumo.txt
           fi
 
       - uses: actions/upload-artifact@v4
@@ -77,3 +75,26 @@ jobs:
           name: perf-results
           path: perf-results/
           if-no-files-found: ignore
+
+      - name: Guardar resultados na branch perf-results
+        if: always()
+        env:
+          TOKEN_CI: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          TMP=$(mktemp -d)
+          cd "$TMP"
+          git init -q
+          git remote add origin "https://x-access-token:${TOKEN_CI}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin perf-results 2>/dev/null; then
+            git checkout -q -B perf-results FETCH_HEAD
+          else
+            git checkout -q --orphan perf-results
+          fi
+          DEST="perf/${GITHUB_RUN_ID}"
+          mkdir -p "$DEST"
+          cp -r "$GITHUB_WORKSPACE/perf-results/." "$DEST/" 2>/dev/null || echo "sem arquivos de resultado"
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "perf: execução ${GITHUB_RUN_ID}" || echo "nada novo para registrar"
+          git push -q origin HEAD:refs/heads/perf-results
+          echo "Resultados em perf/${GITHUB_RUN_ID}/ na branch perf-results"
