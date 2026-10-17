@@ -1,0 +1,79 @@
+Motor do build: kotlin
+Android: 14 (SDK 34)
+Modelo emulado: sdk_gphone64_x86_64
+APK: app/build/outputs/apk/debug/app-debug.apk (11793018 bytes no runner)
+Instalação:
+  Performing Streamed Install
+Success
+Lista de IMEs instalados (diagnóstico):
+  com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+  com.google.android.tts/com.google.android.apps.speech.tts.googletts.settings.asr.voiceime.VoiceInputMethodService
+Ativando o Termclado como teclado (com novas tentativas):
+  enable após 3 tentativa(s): ok
+  set: Input method com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService selected for user #0 
+Forçando o teclado virtual a aparecer (sem teclado físico):
+Abrindo o campo de teste:
+  Starting: Intent { cmp=com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity } Status: ok LaunchState: COLD Activity: com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity TotalTime: 2372 WaitTime: 2377 Complete 
+Serviço do IME em execução:
+Teclado ainda não visível (tentativa 1), reabrindo o campo de teste
+Teclado ainda não visível (tentativa 2), reabrindo o campo de teste
+Teclado ainda não visível (tentativa 3), reabrindo o campo de teste
+Teclado ainda não visível (tentativa 4), reabrindo o campo de teste
+Teclado ainda não visível (tentativa 5), reabrindo o campo de teste
+Teclado visível antes da medição: NÃO
+RAM (teclado-visivel): PSS total = 52839 KB
+  Native Heap    14832    14784       28       23    16076    21876    15647     1338
+  TOTAL    52839    47192     1528      178   142172    27264    18341     4032
+  Java Heap:     7912                          24544
+  Native Heap:    14784                          16076
+  Graphics:        0                              0
+  TOTAL PSS:    52839            TOTAL RSS:   142172       TOTAL SWAP PSS:      178
+Logs do motor e erros do processo (logcat):
+  10-17 20:05:03.798  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:04.564  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:05.344  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:05.344  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.042  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.043  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.043  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.046  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.046  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.921  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.922  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.922  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.923  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.923  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.955  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.956  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.956  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.957  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.957  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.957  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.968  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.968  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.972  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:06.972  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:07.029  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:07.525  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:07.525  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:07.596  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:08.785  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:09.306     0     0 I binder  : undelivered transaction 367336, process died.
+  10-17 20:05:09.310     0     0 I binder  : undelivered transaction 367449, process died.
+  10-17 20:05:09.315     0     0 I binder  : undelivered transaction 367341, process died.
+  10-17 20:05:09.316     0     0 I binder  : undelivered transaction 367554, process died.
+  10-17 20:05:09.260  1819  2517 W SearchServiceCore: Abort, client detached.
+  10-17 20:05:09.688   521   593 I ActivityManager: Process com.google.android.gms (pid 1473) has died: fg  BFGS
+  10-17 20:05:09.718   521   593 I ActivityManager: Process com.google.android.gms.persistent (pid 1420) has died: fg  BFGS
+  10-17 20:05:09.721   521  2047 D PackageManager: Binder to instant app resolver died
+  10-17 20:05:09.734  1023  1333 D BtGatt.ScanManager: app died, unregister scanner - 1
+  10-17 20:05:09.736  1023  1333 D BtGatt.ScanManager: app died, unregister scanner - 2
+  10-17 20:05:14.746   521   604 W OverlayManager: service 'idmap' died
+Armazenamento:
+  caminho do APK instalado: /data/app/~~41VA7lYAeTiRHa0BDxCFpg==/com.aistudio.tecladoptbr.kxqpva-3hoex_IsRJBJyOc_UBKTsA==/base.apk
+  tamanho do APK instalado: 11793018 bytes
+  dados privados do app: 40 KB
+Estado do teclado:
+  mCurMethodId=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService
+  mInputShown=false
+Concluído. Resultados em perf-results-kotlin/
