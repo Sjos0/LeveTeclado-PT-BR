@@ -2,14 +2,21 @@ package com.example.keyboard
 
 import android.content.Context
 import android.util.Log
+import com.example.BuildConfig
 
 object NativeEngine {
     private const val TAG = "NativeEngine"
     private var isNativeLoaded = false
     private var fallbackEngine: CompactTrieEngine? = null
 
+    /** kotlin: só Kotlin. rust: Rust para sugestões e autocorreção (sem motor Kotlin). both: comportamento padrão. */
+    private val engineMode: String = BuildConfig.ENGINE_MODE
+
     init {
-        try {
+        if (engineMode == "kotlin") {
+            isNativeLoaded = false
+            Log.i(TAG, "Modo kotlin: biblioteca nativa não carregada de propósito")
+        } else try {
             System.loadLibrary("keyboard_core")
             isNativeLoaded = true
             Log.i(TAG, "libkeyboard_core.so nativa em Rust carregada com sucesso!")
@@ -23,11 +30,13 @@ object NativeEngine {
         return try {
             val bytes = context.assets.open("dict_pt_br.bin").use { it.readBytes() }
 
-            // O motor Kotlin é sempre carregado: ele faz a autocorreção (ver getAutoCorrection)
-            fallbackEngine = CompactTrieEngine(bytes)
+            val nativeOk = isNativeLoaded && nativeInit(bytes)
+            // No modo rust o motor Kotlin nem é criado (economiza a RAM do dicionário duplicado).
+            // Se o Rust não estiver disponível, o Kotlin entra como reserva.
+            fallbackEngine = if (engineMode == "rust" && nativeOk) null else CompactTrieEngine(bytes)
 
-            if (isNativeLoaded && nativeInit(bytes)) {
-                Log.i(TAG, "Dicionário binário inicializado no núcleo Rust com sucesso.")
+            if (nativeOk) {
+                Log.i(TAG, "Dicionário binário inicializado no núcleo Rust (modo $engineMode).")
             } else {
                 Log.i(TAG, "Dicionário binário inicializado no CompactTrieEngine (Kotlin).")
             }
@@ -53,10 +62,15 @@ object NativeEngine {
     }
 
     fun getAutoCorrection(prevWord: String, typedWord: String): String? {
-        // A autocorreção roda no motor Kotlin, que tem a versão atual das regras (ver suggest.rs).
-        // A libkeyboard_core.so commitada não contém as strings da stoplist atual, então parece ter sido
-        // compilada de uma versão anterior. Depois de recompilar a partir de rust-core/ (cargo-ndk),
-        // dá para voltar a usar nativeGetAutoCorrection aqui.
+        if (engineMode == "rust" && isNativeLoaded) {
+            return try {
+                nativeGetAutoCorrection(prevWord, typedWord)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Falha na chamada JNI nativeGetAutoCorrection: ${t.message}")
+                null
+            }
+        }
+        // Nos modos both e kotlin a autocorreção é feita no motor Kotlin.
         return fallbackEngine?.getAutoCorrection(prevWord, typedWord)
     }
 

@@ -1,4 +1,4 @@
-name: Desempenho no emulador (RAM e armazenamento)
+name: Desempenho no emulador (RAM e armazenamento por motor)
 
 on:
   workflow_dispatch: {}
@@ -7,11 +7,18 @@ permissions: {}
 
 jobs:
   perf:
-    name: Medir RAM e armazenamento no emulador
+    name: Medir motor ${{ matrix.engine }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: write
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        engine: [kotlin, rust, both]
+    env:
+      ENGINE_LABEL: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,10 +55,10 @@ jobs:
           open(p, 'w', encoding='utf-8').write(s.replace(old, new, 1))
           PYCODE
 
-      - name: Compilar APK de depuração
-        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx1536m -XX:+UseSerialGC -Dfile.encoding=UTF-8" assembleDebug
+      - name: Compilar APK de depuração (motor ${{ matrix.engine }})
+        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx1536m -XX:+UseSerialGC -Dfile.encoding=UTF-8" -PengineMode=${{ matrix.engine }} assembleDebug
 
-      - name: Medir no emulador
+      - name: Medir no emulador (motor ${{ matrix.engine }})
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -60,21 +67,15 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
-          script: bash scripts/perf/medir.sh perf-results app/build/outputs/apk/debug/app-debug.apk
+          script: bash scripts/perf/medir.sh perf-results-${{ matrix.engine }} app/build/outputs/apk/debug/app-debug.apk
 
       - name: Publicar resumo na página da execução
         if: always()
         run: |
-          if [ -f perf-results/resumo.txt ]; then
-            { echo '## Resultado de desempenho (emulador)'; echo '```'; cat perf-results/resumo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          d=perf-results-${{ matrix.engine }}
+          if [ -f "$d/resumo.txt" ]; then
+            { echo "## Desempenho: motor ${{ matrix.engine }}"; echo '```'; cat "$d/resumo.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: perf-results
-          path: perf-results/
-          if-no-files-found: ignore
 
       - name: Guardar resultados na branch perf-results
         if: always()
@@ -91,10 +92,21 @@ jobs:
           else
             git checkout -q --orphan perf-results
           fi
-          DEST="perf/${GITHUB_RUN_ID}"
+          DEST="perf/${GITHUB_RUN_ID}/${ENGINE_LABEL}"
           mkdir -p "$DEST"
-          cp -r "$GITHUB_WORKSPACE/perf-results/." "$DEST/" 2>/dev/null || echo "sem arquivos de resultado"
+          cp -r "$GITHUB_WORKSPACE/perf-results-${ENGINE_LABEL}/." "$DEST/" 2>/dev/null || echo "sem arquivos de resultado"
           git add -A
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "perf: execução ${GITHUB_RUN_ID}" || echo "nada novo para registrar"
-          git push -q origin HEAD:refs/heads/perf-results
-          echo "Resultados em perf/${GITHUB_RUN_ID}/ na branch perf-results"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "perf: execução ${GITHUB_RUN_ID} motor ${ENGINE_LABEL}" || echo "nada novo"
+          for tentativa in 1 2 3; do
+            git push -q origin HEAD:refs/heads/perf-results && break
+            git fetch -q origin perf-results && git rebase -q FETCH_HEAD || true
+            sleep 3
+          done
+          echo "Resultados em $DEST na branch perf-results"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-results-${{ matrix.engine }}
+          path: perf-results-${{ matrix.engine }}/
+          if-no-files-found: ignore

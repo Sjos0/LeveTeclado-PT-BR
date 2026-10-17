@@ -15,6 +15,7 @@ RESUMO="$OUT/resumo.txt"
 log() { echo "$*" | tee -a "$RESUMO"; echo "::notice::$*"; }
 trap 'echo "::error::medir.sh parou na linha $LINENO (código $?)"' ERR
 
+log "Motor do build: ${ENGINE_LABEL:-não informado}"
 log "Android: $(adb shell getprop ro.build.version.release | tr -d '\r') (SDK $(adb shell getprop ro.build.version.sdk | tr -d '\r'))"
 log "Modelo emulado: $(adb shell getprop ro.product.model | tr -d '\r')"
 log "APK: $APK ($(stat -c %s "$APK" 2>/dev/null || echo ?) bytes no runner)"
@@ -58,6 +59,8 @@ snapshot() {
 log "Serviço do IME em execução:"
 adb shell dumpsys activity services "$PKG" 2>/dev/null | tr -d '\r' | grep -E "LatinIMEKeyboardService|ServiceRecord" | head -4 | while read -r l; do log "  $l"; done
 snapshot "teclado-visivel"
+log "Logs do motor (NativeEngine), confirma qual motor carregou:"
+adb logcat -d -s NativeEngine:I NativeEngine:W 2>/dev/null | tr -d '\r' | tail -6 | while read -r l; do log "  $l"; done
 
 log "Armazenamento:"
 apk_path=$(adb shell pm path "$PKG" 2>/dev/null | tr -d '\r' | sed 's/^package://' | head -1)
