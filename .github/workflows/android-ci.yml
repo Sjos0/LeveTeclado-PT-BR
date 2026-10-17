@@ -151,9 +151,14 @@ jobs:
           expected_version="${GITHUB_REF_NAME#v}"
           actual_version="$(printf '%s\n' "$pkg_line" | sed -n "s/.* versionName='\([^']*\)'.*/\1/p")"
           [ "$actual_version" = "$expected_version" ] || fail "versionName no APK '${actual_version}' diferente de '${expected_version}'"
-          if [ "$GITHUB_REF_NAME" = "v1.9" ]; then
+          case "$GITHUB_REF_NAME" in
+            v1.9) expected_code=10 ;;
+            v1.9.1) expected_code=11 ;;
+            *) expected_code="" ;;
+          esac
+          if [ -n "$expected_code" ]; then
             actual_code="$(printf '%s\n' "$pkg_line" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
-            [ "$actual_code" = "10" ] || fail "versionCode no APK '${actual_code}' diferente de 10"
+            [ "$actual_code" = "$expected_code" ] || fail "versionCode no APK '${actual_code}' diferente de ${expected_code}"
           fi
           for abi in arm64-v8a armeabi-v7a x86_64; do
             unzip -l "$apk" | grep "lib/$abi/libkeyboard_core.so" >/dev/null || fail "Biblioteca lib/$abi/libkeyboard_core.so ausente no APK"
@@ -173,6 +178,10 @@ jobs:
             gh release create "$GITHUB_REF_NAME" "$asset" \
               --title "Teclado Leve PT-BR v1.9 — Configurações Material e ícones oficiais" \
               --notes-file docs/RELEASE_NOTES_v1.9.md
+          elif [ -f "docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md" ]; then
+            gh release create "$GITHUB_REF_NAME" "$asset" \
+              --title "Teclado Leve PT-BR $GITHUB_REF_NAME" \
+              --notes-file "docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
           else
             gh release create "$GITHUB_REF_NAME" "$asset" \
               --title "Leve Teclado $GITHUB_REF_NAME" \
