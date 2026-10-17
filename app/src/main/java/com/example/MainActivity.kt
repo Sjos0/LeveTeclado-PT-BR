@@ -14,6 +14,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.FrameLayout
+import android.graphics.drawable.GradientDrawable
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -78,11 +80,12 @@ class MainActivity : Activity() {
         }
 
         val headerTitle = TextView(this).apply {
-            text = "Teclado Leve"
+            text = "Termclado"
             textSize = 22f
             setTextColor(textPrimary)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
+        appBar.addView(createHeaderLogo())
         appBar.addView(headerTitle)
         root.addView(appBar)
 
@@ -154,7 +157,7 @@ class MainActivity : Activity() {
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_info,
             title = "Sobre",
-            subtitle = "Teclado Leve PT-BR v${BuildConfig.VERSION_NAME}"
+            subtitle = "Termclado v${BuildConfig.VERSION_NAME}"
         ) { showAboutDialog() })
 
         scrollView.addView(listContainer)
@@ -165,6 +168,28 @@ class MainActivity : Activity() {
         CoroutineScope(Dispatchers.Main).launch {
             checkAppUpdates(showFeedbackIfLatest = false)
         }
+    }
+
+    private fun createHeaderLogo(): View {
+        val size = dp(40)
+        val circle = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+                setStroke(dp(1), Color.parseColor("#E8EAED"))
+            }
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                marginEnd = dp(12)
+            }
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.ic_keyboard_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+            layoutParams = FrameLayout.LayoutParams(size, size)
+        }
+        circle.addView(logo)
+        return circle
     }
 
     private fun themeSubtitle(): String {
@@ -371,8 +396,8 @@ class MainActivity : Activity() {
 
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Sobre o Teclado PT-BR")
-            .setMessage("Teclado Leve PT-BR v${BuildConfig.VERSION_NAME}\n\n• Desenvolvido para celulares com menos de 1 GB de RAM e 16 GB de armazenamento.\n• Consumo PSS real < 10 MB de RAM.\n• Algoritmo de tolerância a toque rápido para 0ms de latência.\n• Compatível com Android 8.0 (API 26) ou superior.")
+            .setTitle("Sobre o Termclado")
+            .setMessage("Termclado v${BuildConfig.VERSION_NAME}\n\n• Desenvolvido para celulares com menos de 1 GB de RAM e 16 GB de armazenamento.\n• Consumo PSS real < 10 MB de RAM.\n• Algoritmo de tolerância a toque rápido para 0ms de latência.\n• Compatível com Android 8.0 (API 26) ou superior.")
             .setPositiveButton("Fechar", null)
             .show()
     }

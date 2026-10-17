@@ -19,7 +19,7 @@ class ExampleRobolectricTest {
     fun testAppName() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("Teclado PT-BR", appName)
+        assertEquals("Termclado", appName)
     }
 
     @Test

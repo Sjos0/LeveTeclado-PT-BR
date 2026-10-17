@@ -25,7 +25,7 @@ object UpdateChecker {
 
     suspend fun checkForUpdates(
         repoOwner: String = "Sjos0",
-        repoName: String = "LeveTeclado-PT-BR"
+        repoName: String = "Termclado"
     ): UpdateResult = withContext(Dispatchers.IO) {
         val currentVersion = BuildConfig.VERSION_NAME
         val res = checkRepo(repoOwner, repoName, currentVersion)

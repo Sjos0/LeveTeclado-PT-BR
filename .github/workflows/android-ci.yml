@@ -180,11 +180,11 @@ jobs:
               --notes-file docs/RELEASE_NOTES_v1.9.md
           elif [ -f "docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md" ]; then
             gh release create "$GITHUB_REF_NAME" "$asset" \
-              --title "Teclado Leve PT-BR $GITHUB_REF_NAME" \
+              --title "Termclado $GITHUB_REF_NAME" \
               --notes-file "docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
           else
             gh release create "$GITHUB_REF_NAME" "$asset" \
-              --title "Leve Teclado $GITHUB_REF_NAME" \
+              --title "Termclado $GITHUB_REF_NAME" \
               --generate-notes
           fi
       - if: always()
