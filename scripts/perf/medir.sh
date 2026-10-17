@@ -59,8 +59,8 @@ snapshot() {
 log "Serviço do IME em execução:"
 adb shell dumpsys activity services "$PKG" 2>/dev/null | tr -d '\r' | grep -E "LatinIMEKeyboardService|ServiceRecord" | head -4 | while read -r l; do log "  $l"; done
 snapshot "teclado-visivel"
-log "Logs do motor (NativeEngine), confirma qual motor carregou:"
-adb logcat -d -s NativeEngine:I NativeEngine:W 2>/dev/null | tr -d '\r' | tail -6 | while read -r l; do log "  $l"; done
+log "Logs do motor e erros do processo (logcat):"
+adb logcat -d 2>/dev/null | tr -d '\r' | grep -iE "NativeEngine|LatinIME|keyboard_core|FATAL|AndroidRuntime|SIGABRT|Abort|dlopen|UnsatisfiedLink|Process .*has died|died" | tail -40 | while read -r l; do log "  ${l:0:220}"; done
 
 log "Armazenamento:"
 apk_path=$(adb shell pm path "$PKG" 2>/dev/null | tr -d '\r' | sed 's/^package://' | head -1)

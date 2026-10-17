@@ -1,7 +1,12 @@
 name: Desempenho no emulador (RAM e armazenamento por motor)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      engines:
+        description: 'Motores a medir (separados por espaço): kotlin rust both'
+        required: false
+        default: 'kotlin rust both'
 
 permissions: {}
 
@@ -10,6 +15,7 @@ jobs:
     name: Medir motor ${{ matrix.engine }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    if: ${{ contains(github.event.inputs.engines || 'kotlin rust both', matrix.engine) }}
     permissions:
       contents: write
     strategy:
