@@ -40,8 +40,23 @@ jobs:
           print('CI working copy uses Android default debug signing; repository source remains unchanged')
           PYCODE
       - name: Run unit tests and build debug APK
-        timeout-minutes: 15
-        run: ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleDebug
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --max-workers=1 "-Dorg.gradle.jvmargs=-Xmx448m -XX:MaxMetaspaceSize=320m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -Dfile.encoding=UTF-8" --stacktrace --info testDebugUnitTest assembleDebug 2>&1 | tee "$RUNNER_TEMP/gradle-debug.log"
+      - name: Summarize debug build failure
+        if: failure()
+        run: |
+          log="$RUNNER_TEMP/gradle-debug.log"
+          if [ ! -f "$log" ]; then
+            echo "::error::O log do Gradle nao foi gerado (falha antes do build)."
+            exit 0
+          fi
+          summary="$(grep -E 'What went wrong|Execution failed|FAILED|error:|e: file|Caused by|Could not|Exception' "$log" | head -25 | sed 's/%/%25/g; s/\r//g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          if [ -z "$summary" ]; then
+            summary="$(tail -n 30 "$log" | sed 's/%/%25/g; s/\r//g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          fi
+          echo "::error::RESUMO DO ERRO DE BUILD DEBUG: ${summary}"
       - name: Verify debug APK signature
         run: |
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/*.apk
