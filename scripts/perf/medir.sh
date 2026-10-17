@@ -58,15 +58,19 @@ snapshot() {
 }
 log "Serviço do IME em execução:"
 adb shell dumpsys activity services "$PKG" 2>/dev/null | tr -d '\r' | grep -E "LatinIMEKeyboardService|ServiceRecord" | head -4 | while read -r l; do log "  $l"; done
-# Garante que o teclado está visível antes de medir (o emulador às vezes não o mostra na primeira vez)
-mostrado=0
-for tentativa in 1 2 3 4 5; do
-  if adb shell dumpsys input_method 2>/dev/null | tr -d '\r' | grep -q "mInputShown=true"; then mostrado=1; break; fi
-  log "Teclado ainda não visível (tentativa $tentativa), reabrindo o campo de teste"
+# A medição vale quando o SERVIÇO do IME está rodando (o dicionário é carregado na criação do serviço).
+# A exibição do teclado é registrada à parte, porque o emulador nem sempre a mostra.
+servico_ativo() { adb shell dumpsys activity services "$PKG" 2>/dev/null | tr -d '\r' | grep -q "ServiceRecord.*LatinIMEKeyboardService"; }
+ativo=0
+for tentativa in 1 2 3 4 5 6; do
+  if servico_ativo; then ativo=1; break; fi
+  log "Serviço do IME ainda não ativo (tentativa $tentativa), reabrindo o campo de teste"
   adb shell am start -W -n "$PKG/com.example.DevTypingActivity" >/dev/null 2>&1 || true
-  sleep 6
+  sleep 8
 done
-log "Teclado visível antes da medição: $([ "$mostrado" = 1 ] && echo sim || echo NÃO)"
+sleep 5
+log "Serviço do IME ativo antes da medição: $([ "$ativo" = 1 ] && echo sim || echo NÃO)"
+log "Teclado visível (mInputShown): $(adb shell dumpsys input_method 2>/dev/null | tr -d '\r' | grep -o 'mInputShown=[a-z]*' | head -1)"
 snapshot "teclado-visivel"
 log "Logs do motor e erros do processo (logcat):"
 adb logcat -d 2>/dev/null | tr -d '\r' | grep -iE "NativeEngine|LatinIME|keyboard_core|FATAL|AndroidRuntime|SIGABRT|Abort|dlopen|UnsatisfiedLink|Process .*has died|died" | tail -40 | while read -r l; do log "  ${l:0:220}"; done
