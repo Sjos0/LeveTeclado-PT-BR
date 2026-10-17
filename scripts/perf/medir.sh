@@ -31,6 +31,19 @@ log "  $inst"
 log "Lista de IMEs instalados (diagnóstico):"
 adb shell ime list -a -s 2>&1 | tr -d '\r' | head -5 | while read -r l; do log "  $l"; done
 
+log "Benchmark do motor (processo isolado, sem IME):"
+adb logcat -c 2>/dev/null || true
+adb shell am start -W -n "$PKG/com.example.DevTypingActivity" --ez bench true >/dev/null 2>&1 || true
+for i in $(seq 1 30); do
+  if adb logcat -d -s EngineBench:I 2>/dev/null | grep -q "EngineBench.*|FIM"; then break; fi
+  sleep 3
+done
+adb logcat -d -s EngineBench:I 2>/dev/null | tr -d '\r' | sed -n 's/.*EngineBench: //p' > "$OUT/bench.txt"
+grep "^MEM|" "$OUT/bench.txt" | while read -r l; do log "  $l"; done
+log "  linhas de equivalência: AC=$(grep -c '^AC|' "$OUT/bench.txt") SG=$(grep -c '^SG|' "$OUT/bench.txt")"
+adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
+sleep 3
+
 log "Ativando o Termclado como teclado (com novas tentativas):"
 ativo=0
 for tentativa in 1 2 3 4 5 6 7 8 9 10; do

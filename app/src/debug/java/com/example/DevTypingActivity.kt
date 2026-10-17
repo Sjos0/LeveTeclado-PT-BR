@@ -19,6 +19,13 @@ class DevTypingActivity : Activity() {
             setPadding(40, 160, 40, 40)
         }
         setContentView(edit)
+
+        // Modo benchmark: mede o motor e sai, sem o IME (ver scripts/perf/medir.sh)
+        if (intent?.getBooleanExtra("bench", false) == true) {
+            EngineBench.run(this)
+            finish()
+            return
+        }
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         edit.post {
             edit.requestFocus()
