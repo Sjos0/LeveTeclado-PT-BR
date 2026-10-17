@@ -40,6 +40,9 @@ done
 log "  enable após $tentativa tentativa(s): $([ "$ativo" = 1 ] && echo ok || echo 'FALHOU')"
 log "  set: $(adb shell ime set "$IME" 2>&1 | tr -d '\r' | tr '\n' ' ')"
 
+log "Forçando o teclado virtual a aparecer (sem teclado físico):"
+adb shell settings put secure show_ime_with_hard_keyboard 1 >/dev/null 2>&1 || true
+
 log "Abrindo o campo de teste:"
 log "  $(adb shell am start -W -n "$PKG/com.example.DevTypingActivity" 2>&1 | tr -d '\r' | tr '\n' ' ')"
 sleep 8
@@ -52,6 +55,8 @@ snapshot() {
   log "RAM ($nome): PSS total = ${pss:-indisponível} KB"
   grep -E "Java Heap|Native Heap|Graphics|Private Dirty|TOTAL" "$OUT/$nome-meminfo.txt" | head -8 | while read -r l; do log "  $l"; done
 }
+log "Serviço do IME em execução:"
+adb shell dumpsys activity services "$PKG" 2>/dev/null | tr -d '\r' | grep -E "LatinIMEKeyboardService|ServiceRecord" | head -4 | while read -r l; do log "  $l"; done
 snapshot "teclado-visivel"
 
 log "Armazenamento:"
