@@ -1,5 +1,6 @@
 package com.example.keyboard
 
+import com.example.UpdateNotifier
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
