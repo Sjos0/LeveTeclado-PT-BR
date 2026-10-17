@@ -82,7 +82,6 @@ Quando você usa a digitação por voz, o áudio gravado é enviado à Groq para
 ├── rust-core/src/                 # lib.rs, dictionary.rs, suggest.rs, jni.rs
 ├── scripts/build_dictionary.py    # Gera o dict_pt_br.bin
 ├── docs/                          # Notas de cada versão
-├── APK/                           # APKs de versões anteriores
 └── stoplist_names.txt             # Palavras que nunca sofrem autocorreção
 ```
 
@@ -107,7 +106,7 @@ O APK de release precisa das variáveis `KEYSTORE_PATH`, `STORE_PASSWORD` e `KEY
 
 ## 📥 Instalação
 
-1. Baixe o APK da última release no GitHub (ou pegue o arquivo em `APK/`).
+1. Baixe o APK da última release no GitHub.
 2. Toque no arquivo e confirme a instalação. Se o Android pedir, permita instalar apps desconhecidos.
 3. Abra o **Termclado** e siga os passos da tela inicial: ativar o teclado nas configurações do Android e escolhê-lo como teclado atual.
 
@@ -126,6 +125,10 @@ adb shell dumpsys meminfo com.aistudio.tecladoptbr.kxqpva
 Procure a linha `TOTAL PSS`. Os valores variam conforme o aparelho e a versão do Android.
 
 ---
+
+## 🗂️ Versões anteriores
+
+Cada versão tem notas em `docs/`. As releases publicadas estão na página de releases do GitHub. Os APKs de versões que não têm release (1.3, 1.4 e 1.8 de depuração) ficam na branch `apk-historico`, com índice e SHA-256 em `APK/INDICE.md`.
 
 ## 🧭 Pendências conhecidas
 
