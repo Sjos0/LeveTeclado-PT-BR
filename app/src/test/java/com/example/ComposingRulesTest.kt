@@ -19,6 +19,13 @@ class ComposingRulesTest {
     }
 
     @Test
+    fun composicao_do_editor_fora_do_cursor_conta_como_movimento() {
+        assertTrue(ComposingRules.compositionElsewhere(candidatesEnd = 10, cursor = 4))
+        assertFalse(ComposingRules.compositionElsewhere(candidatesEnd = 10, cursor = 10))
+        assertFalse(ComposingRules.compositionElsewhere(candidatesEnd = -1, cursor = 4))
+    }
+
+    @Test
     fun sem_palavra_em_composicao_nao_ha_o_que_manter() {
         assertFalse(ComposingRules.stillAtCursor("", ""))
         assertFalse(ComposingRules.stillAtCursor("abc", ""))

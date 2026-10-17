@@ -190,7 +190,9 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
         if (composingWord.isEmpty()) return
         val ic = currentInputConnection ?: return
         val before = ic.getTextBeforeCursor(composingWord.length, 0)?.toString().orEmpty()
-        val movedAway = newSelStart != newSelEnd || !ComposingRules.stillAtCursor(before, composingWord.toString())
+        val movedAway = newSelStart != newSelEnd ||
+            ComposingRules.compositionElsewhere(candidatesEnd, newSelEnd) ||
+            !ComposingRules.stillAtCursor(before, composingWord.toString())
         if (movedAway) {
             // O usuário foi para outro ponto do texto: encerra a palavra no lugar onde ela está
             composingWord.setLength(0)
