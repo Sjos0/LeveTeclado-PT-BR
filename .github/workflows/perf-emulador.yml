@@ -11,18 +11,30 @@ on:
 permissions: {}
 
 jobs:
+  plan:
+    name: Planejar motores
+    runs-on: ubuntu-latest
+    outputs:
+      engines: ${{ steps.lista.outputs.engines }}
+    steps:
+      - id: lista
+        env:
+          PEDIDO: ${{ github.event.inputs.engines }}
+        run: |
+          python3 -c "import json,os; e=(os.environ.get('PEDIDO') or 'kotlin rust both').split(); print('engines=' + json.dumps(e))" >> "$GITHUB_OUTPUT"
+
   perf:
     name: Medir motor ${{ matrix.engine }}
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: ${{ contains(github.event.inputs.engines || 'kotlin rust both', matrix.engine) }}
     permissions:
       contents: write
     strategy:
       max-parallel: 1
       fail-fast: false
       matrix:
-        engine: [kotlin, rust, both]
+        engine: ${{ fromJSON(needs.plan.outputs.engines) }}
     env:
       ENGINE_LABEL: ${{ matrix.engine }}
     steps:
