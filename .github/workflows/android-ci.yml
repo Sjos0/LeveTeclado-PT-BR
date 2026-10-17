@@ -154,6 +154,7 @@ jobs:
           case "$GITHUB_REF_NAME" in
             v1.9) expected_code=10 ;;
             v1.9.1) expected_code=11 ;;
+            v1.9.2) expected_code=12 ;;
             *) expected_code="" ;;
           esac
           if [ -n "$expected_code" ]; then
