@@ -18,7 +18,8 @@ object UpdateChecker {
             val releaseName: String,
             val releaseNotes: String,
             val downloadUrl: String,
-            val htmlUrl: String
+            val htmlUrl: String,
+            val apkUrl: String? = null
         ) : UpdateResult()
         data class Error(val message: String) : UpdateResult()
     }
@@ -67,6 +68,7 @@ object UpdateChecker {
 
                 // Procurar arquivo APK nos assets da release
                 var downloadUrl = htmlUrl
+                var apkUrl: String? = null
                 val assets = json.optJSONArray("assets")
                 if (assets != null) {
                     for (i in 0 until assets.length()) {
@@ -74,6 +76,7 @@ object UpdateChecker {
                         val assetName = asset.optString("name", "")
                         if (assetName.endsWith(".apk", ignoreCase = true)) {
                             downloadUrl = asset.optString("browser_download_url", htmlUrl)
+                            apkUrl = downloadUrl
                             break
                         }
                     }
@@ -86,7 +89,8 @@ object UpdateChecker {
                         releaseName = releaseName,
                         releaseNotes = releaseNotes,
                         downloadUrl = downloadUrl,
-                        htmlUrl = htmlUrl
+                        htmlUrl = htmlUrl,
+                        apkUrl = apkUrl
                     )
                 } else {
                     UpdateResult.UpToDate(currentVersion)

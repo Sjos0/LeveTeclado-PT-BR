@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Permissão para solicitar instalação de pacotes atualizados via instalador do sistema. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Aviso de nova versão disponível (Android 13 ou superior pede permissão). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -63,6 +65,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Recebe o resultado da instalação feita pelo instalador do sistema -->
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
 
     </application>
 

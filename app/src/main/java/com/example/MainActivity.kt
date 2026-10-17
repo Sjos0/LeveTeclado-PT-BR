@@ -164,6 +164,12 @@ class MainActivity : Activity() {
         root.addView(scrollView)
         setContentView(root)
 
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 2001)
+        }
+
         // Busca automática silenciosa por novas atualizações no GitHub Releases
         CoroutineScope(Dispatchers.Main).launch {
             checkAppUpdates(showFeedbackIfLatest = false)
@@ -441,6 +447,130 @@ class MainActivity : Activity() {
         }
     }
 
+    private var downloadCancelled = false
+
+    private fun startInAppUpdate(result: UpdateChecker.UpdateResult.NewVersion) {
+        val apkUrl = result.apkUrl
+        if (apkUrl == null) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.htmlUrl)))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Não foi possível abrir o link", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        if (!ApkInstaller.canInstallPackages(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Permitir instalação")
+                .setMessage("Para instalar a atualização, ative a opção de permitir instalação para o Termclado. Depois volte aqui e toque em baixar de novo.")
+                .setPositiveButton("Abrir configurações") { _, _ ->
+                    try {
+                        startActivity(
+                            Intent(
+                                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                    } catch (_: Exception) {
+                    }
+                }
+                .setNegativeButton("Agora não", null)
+                .show()
+            return
+        }
+        showDownloadProgress(result, apkUrl)
+    }
+
+    private fun showDownloadProgress(result: UpdateChecker.UpdateResult.NewVersion, apkUrl: String) {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(10), dp(18), dp(4))
+        }
+        val status = TextView(this).apply {
+            text = "Conectando ao GitHub…"
+            textSize = 14f
+            setTextColor(Color.parseColor("#5F6368"))
+        }
+        val bar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12) }
+        }
+        box.addView(status)
+        box.addView(bar)
+
+        downloadCancelled = false
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Baixando v${result.latestVersion}")
+            .setView(box)
+            .setCancelable(false)
+            .setNegativeButton("Cancelar") { _, _ -> downloadCancelled = true }
+            .create()
+        dialog.show()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val appContext = applicationContext
+            try {
+                val file = ApkDownloader.download(
+                    context = appContext,
+                    url = apkUrl,
+                    version = result.latestVersion,
+                    isCancelled = { downloadCancelled },
+                    onProgress = { done, total ->
+                        val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                        val text = if (total > 0) {
+                            "${mbText(done)} de ${mbText(total)} ($pct%)"
+                        } else {
+                            "${mbText(done)} baixados"
+                        }
+                        runOnUiThread {
+                            bar.progress = pct
+                            status.text = text
+                        }
+                    }
+                )
+                val problem = ApkVerifier.verify(appContext, file, BuildConfig.VERSION_CODE)
+                if (problem != null) {
+                    ApkDownloader.deleteAll(appContext)
+                    throw IllegalStateException(problem)
+                }
+                runOnUiThread { if (dialog.isShowing) dialog.dismiss() }
+                ApkInstaller.install(appContext, file)
+            } catch (_: ApkDownloader.CancelledException) {
+                ApkDownloader.deleteAll(appContext)
+                runOnUiThread {
+                    if (dialog.isShowing) dialog.dismiss()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Download cancelado. Toque em baixar de novo para continuar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                ApkDownloader.deleteAll(appContext)
+                runOnUiThread {
+                    if (dialog.isShowing) dialog.dismiss()
+                    showDownloadError(result, e.message ?: "erro desconhecido")
+                }
+            }
+        }
+    }
+
+    private fun showDownloadError(result: UpdateChecker.UpdateResult.NewVersion, message: String) {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle("Não foi possível atualizar")
+            .setMessage("$message\n\nNada ficou salvo no celular. Toque em \"Tentar de novo\" para baixar outra vez.")
+            .setPositiveButton("Tentar de novo") { _, _ -> startInAppUpdate(result) }
+            .setNegativeButton("Fechar", null)
+            .show()
+    }
+
+    private fun mbText(bytes: Long): String = String.format("%.1f MB", bytes / 1048576.0)
+
     private fun showUpdateAvailableDialog(result: UpdateChecker.UpdateResult.NewVersion) {
         // Altura máxima do conteúdo rolável: ~50% da tela, para os 3 botões
         // do AlertDialog (Baixar / GitHub / Depois) ficarem sempre visíveis.
@@ -500,13 +630,7 @@ class MainActivity : Activity() {
         val dialog = AlertDialog.Builder(this)
             .setTitle("Nova Versão Disponível: v${result.latestVersion}")
             .setView(root)
-            .setPositiveButton("Baixar Atualização (APK)") { _, _ ->
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.downloadUrl)))
-                } catch (_: Exception) {
-                    Toast.makeText(this, "Não foi possível abrir o link", Toast.LENGTH_SHORT).show()
-                }
-            }
+            .setPositiveButton("Baixar e instalar") { _, _ -> startInAppUpdate(result) }
             .setNeutralButton("GitHub") { _, _ ->
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.htmlUrl)))
