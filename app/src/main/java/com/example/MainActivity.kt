@@ -40,7 +40,6 @@ class MainActivity : Activity() {
     private val density by lazy { resources.displayMetrics.density }
     private fun dp(value: Int) = (value * density).toInt()
 
-    private lateinit var statusContainer: LinearLayout
     private val REQUEST_MIC = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,18 +95,6 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, dp(28))
         }
 
-        // Status de ativação (só quando necessário) — equivalente ao setup do Gboard
-        statusContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(4), dp(16), dp(8))
-        }
-        listContainer.addView(statusContainer)
-
-        // Campo de teste discreto (Gboard também permite testar o teclado nas configs)
-        listContainer.addView(createTestInputCard())
-
-        listContainer.addView(createSectionDivider())
-
         // Ordem alinhada ao Gboard: Idiomas → Preferências → Tema → Correção →
         // Dicionário → Digitação por voz → Privacidade → Sobre (+ atualizações)
         listContainer.addView(createSettingsItem(
@@ -152,8 +139,6 @@ class MainActivity : Activity() {
             subtitle = if (prefs.groqApiKey.isNotBlank()) "Groq Whisper configurado" else "Configure a chave da API Groq"
         ) { showSpeechToTextDialog() })
 
-        listContainer.addView(createSectionDivider())
-
         listContainer.addView(createSettingsItem(
             iconRes = R.drawable.ic_settings_privacy,
             title = "Privacidade",
@@ -182,109 +167,6 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        updateActivationStatusCard()
-    }
-
-    private fun updateActivationStatusCard() {
-        statusContainer.removeAllViews()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
-        val currentIme = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
-        val isSelected = currentIme != null && currentIme.contains(packageName)
-
-        if (!isEnabled) {
-            // Cartão de Ativação Passo 1
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.parseColor("#E8F0FE"))
-                setPadding(dp(16), dp(14), dp(16), dp(14))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            val title = TextView(this).apply {
-                text = "Ativar o Teclado Leve"
-                setTextColor(Color.parseColor("#174EA6"))
-                textSize = 15.5f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            val desc = TextView(this).apply {
-                text = "Habilite o Teclado Leve PT-BR para poder usá-lo em qualquer aplicativo."
-                setTextColor(Color.parseColor("#5F6368"))
-                textSize = 13f
-                setPadding(0, dp(4), 0, dp(10))
-            }
-            val btn = Button(this).apply {
-                text = "Ativar nas Configurações"
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.parseColor("#1A73E8"))
-                setOnClickListener {
-                    startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                }
-            }
-            card.addView(title)
-            card.addView(desc)
-            card.addView(btn)
-            statusContainer.addView(card)
-        } else if (!isSelected) {
-            // Cartão de Seleção Passo 2
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.parseColor("#E8F0FE"))
-                setPadding(dp(16), dp(14), dp(16), dp(14))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            val title = TextView(this).apply {
-                text = "Selecionar como teclado padrão"
-                setTextColor(Color.parseColor("#174EA6"))
-                textSize = 15.5f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            val desc = TextView(this).apply {
-                text = "Selecione o Teclado Leve PT-BR como método de digitação principal."
-                setTextColor(Color.parseColor("#5F6368"))
-                textSize = 13f
-                setPadding(0, dp(4), 0, dp(10))
-            }
-            val btn = Button(this).apply {
-                text = "Selecionar como Padrão"
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.parseColor("#1A73E8"))
-                setOnClickListener {
-                    imm.showInputMethodPicker()
-                }
-            }
-            card.addView(title)
-            card.addView(desc)
-            card.addView(btn)
-            statusContainer.addView(card)
-        } else {
-            // Cartão de Status Ativo
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(Color.parseColor("#E6F4EA"))
-                setPadding(dp(16), dp(12), dp(16), dp(12))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            val checkIcon = TextView(this).apply {
-                text = "✓"
-                setTextColor(Color.parseColor("#34D399"))
-                textSize = 18f
-                setPadding(0, 0, dp(12), 0)
-            }
-            val statusText = TextView(this).apply {
-                text = "Teclado ativo e definido como padrão"
-                setTextColor(Color.parseColor("#137333"))
-                textSize = 14f
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            card.addView(checkIcon)
-            card.addView(statusText)
-            statusContainer.addView(card)
-        }
-    }
-
     private fun themeSubtitle(): String {
         val id = try { prefs.themeId } catch (_: Exception) { 0 }
         return when (id) {
@@ -292,56 +174,6 @@ class MainActivity : Activity() {
             2 -> "Ardósia Azul"
             else -> "Grafite e Cobalto"
         }
-    }
-
-    private fun createSectionDivider(): View {
-        return View(this).apply {
-            setBackgroundColor(Color.parseColor("#E8EAED"))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
-            ).apply {
-                setMargins(0, dp(8), 0, dp(8))
-            }
-        }
-    }
-
-    private fun createTestInputCard(): LinearLayout {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#FFFFFF"))
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.setMargins(dp(16), dp(4), dp(16), dp(8))
-            layoutParams = params
-        }
-
-        val title = TextView(this).apply {
-            text = "Testar o teclado"
-            setTextColor(Color.parseColor("#202124"))
-            textSize = 14f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        }
-        val editTest = EditText(this).apply {
-            hint = "Toque para digitar…"
-            setHintTextColor(Color.parseColor("#9AA0A6"))
-            setTextColor(Color.parseColor("#202124"))
-            setBackgroundColor(Color.parseColor("#F1F3F4"))
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            textSize = 15f
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.topMargin = dp(8)
-            layoutParams = lp
-        }
-
-        card.addView(title)
-        card.addView(editTest)
-        return card
     }
 
     private fun createSettingsItem(
