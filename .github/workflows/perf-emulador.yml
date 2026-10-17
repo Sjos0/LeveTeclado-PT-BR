@@ -67,6 +67,9 @@ jobs:
           if [ -f perf-results/resumo.txt ]; then
             { echo '## Resultado de desempenho (emulador)'; echo '```'; cat perf-results/resumo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f perf-results/resumo.txt ]; then
+            while IFS= read -r linha; do echo "::notice::$linha"; done < perf-results/resumo.txt
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
