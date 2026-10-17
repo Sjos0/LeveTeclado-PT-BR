@@ -1,0 +1,77 @@
+Motor do build: rust
+Android: 14 (SDK 34)
+Modelo emulado: sdk_gphone64_x86_64
+APK: app/build/outputs/apk/debug/app-debug.apk (11793018 bytes no runner)
+Instalação:
+  Performing Streamed Install
+Success
+Lista de IMEs instalados (diagnóstico):
+  com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+  com.google.android.tts/com.google.android.apps.speech.tts.googletts.settings.asr.voiceime.VoiceInputMethodService
+Ativando o Termclado como teclado (com novas tentativas):
+  enable após 2 tentativa(s): ok
+  set: Input method com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService selected for user #0 
+Forçando o teclado virtual a aparecer (sem teclado físico):
+Abrindo o campo de teste:
+  Starting: Intent { cmp=com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity } Status: ok LaunchState: WARM Activity: com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity TotalTime: 2512 WaitTime: 2573 Complete 
+Serviço do IME em execução:
+  * ServiceRecord{784f144 u0 com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+  intent={act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+  infoAllowStartForeground=[callingPackage: android; callingUid: 1000; uidState: PER ; uidBFSL: [BFSL]; intent: Intent { act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService }; code:PROC_STATE_PERSISTENT; tempAllowListReason:<6f938e8 android.intent.action.BOOT_COMPLETED/u0,reasonCode:BOOT_COMPLETED,duration:20000,callingUid:1000>; targetSdkVersion:36; callerTargetSdkVersion:34; startForegroundCount:0; bindFromPackage:null: isBindService:true]
+  intent={act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+RAM (teclado-visivel): PSS total = 76708 KB
+  Native Heap    33834    33820        0       26    35172    40356    35095     1091
+  TOTAL    76708    71184      380      212   174048    47465    38650     4645
+  Java Heap:    10680                          28148
+  Native Heap:    33820                          35172
+  Graphics:        0                              0
+  TOTAL PSS:    76708            TOTAL RSS:   174048       TOTAL SWAP PSS:      212
+Logs do motor e erros do processo (logcat):
+  10-17 19:53:51.118  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.118  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.118  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.118  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.118  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.119  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.119  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.119  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.119  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.460  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.461  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.461  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.462  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.462  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.462  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.462  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.687     0     0 I binder  : undelivered transaction 172889, process died.
+  10-17 19:53:51.733  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.733  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.734  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.734  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.734  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.740  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.740  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:51.874  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.212  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.212  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.212  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.212  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.212  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:52.429   394   394 W WVCdm   : [oemcrypto_adapter_dynamic.cpp(864):Initialize] Could not load oemcrypto from path liboemcrypto.so.  dlopen failed: library "liboemcrypto.so" not found
+  10-17 19:53:53.235  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:53.238  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:53.239  1813  2292 W SearchServiceCore: Abort, client detached.
+  10-17 19:53:53.239  1813  2292 W SearchServiceCore: Abort, client detached.
+Armazenamento:
+  caminho do APK instalado: /data/app/~~GoJbpNDxTa888dTBqgQGrQ==/com.aistudio.tecladoptbr.kxqpva-cscf6u06PH1AneAss4kVYQ==/base.apk
+  tamanho do APK instalado: 11793018 bytes
+  dados privados do app: 56 KB
+Estado do teclado:
+  mCurMethodId=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService
+  mInputShown=true
+Concluído. Resultados em perf-results-rust/
