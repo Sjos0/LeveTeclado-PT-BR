@@ -1,5 +1,6 @@
 package com.example.keyboard
 
+import com.example.UpdateNotifier
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
@@ -177,6 +178,7 @@ class LatinIMEKeyboardService : InputMethodService(), KeyboardView.OnKeyboardAct
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        UpdateNotifier.maybeCheck(this, voiceScope)
         keyboardView.vibrateEnabled = prefs.vibrateOnPress
         applyCurrentTheme()
         if (panelMode != PanelMode.KEYBOARD) showKeyboardPanel()
