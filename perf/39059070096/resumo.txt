@@ -1,0 +1,29 @@
+Android: 14 (SDK 34)
+Modelo emulado: sdk_gphone64_x86_64
+APK: app/build/outputs/apk/debug/app-debug.apk (11471146 bytes no runner)
+Instalação:
+  Performing Streamed Install
+Success
+Lista de IMEs instalados (diagnóstico):
+  com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+  com.google.android.tts/com.google.android.apps.speech.tts.googletts.settings.asr.voiceime.VoiceInputMethodService
+Ativando o Termclado como teclado (com novas tentativas):
+  enable após 4 tentativa(s): ok
+  set: Input method com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService selected for user #0 
+Abrindo o campo de teste:
+  Starting: Intent { cmp=com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity } Status: ok LaunchState: COLD Activity: com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity TotalTime: 2173 WaitTime: 2205 Complete 
+RAM (teclado-visivel): PSS total = 53078 KB
+  Native Heap    14619    14576       32       26    15888    21620    15654     1220
+  TOTAL    53078    47344     1680      197   141852    27062    18407     3909
+  Java Heap:     8380                          24700
+  Native Heap:    14576                          15888
+  Graphics:        0                              0
+  TOTAL PSS:    53078            TOTAL RSS:   141852       TOTAL SWAP PSS:      197
+Armazenamento:
+  caminho do APK instalado: /data/app/~~BHvpgnMXn3bHN-l95huysg==/com.aistudio.tecladoptbr.kxqpva-WiyiKfWKQB8iqggnbGBsQg==/base.apk
+  tamanho do APK instalado: 11471146 bytes
+  dados privados do app: 40 KB
+Estado do teclado:
+  mCurMethodId=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService
+  mInputShown=false
+Concluído. Resultados em perf-results/
