@@ -16,7 +16,7 @@ Nome novo, logo no topo, atualização dentro do app e ajustes no teclado. Esta 
 ## Dados do APK
 - Pacote: com.aistudio.tecladoptbr.kxqpva
 - versionName: 1.9.2 | versionCode: 12
-- Assinado com a mesma chave das versões anteriores.
+- Assinado com a mesma chave da 1.9 e da 1.9.1.
 - Inclui o dicionário e as bibliotecas nativas para arm64-v8a, armeabi-v7a e x86_64.
 
 ## Instalação

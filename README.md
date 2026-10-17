@@ -1,167 +1,135 @@
-# Teclado PT-BR 🇧🇷
+# Termclado 🇧🇷
 
-Teclado Android (IME) independente, leve e eficiente para o português brasileiro, projetado especificamente para celulares com recursos limitados (menos de 900 MB de RAM e 16 GB de armazenamento) a partir do **Android 8.0 (API 26)**.
+Teclado Android (IME) para português brasileiro, leve e feito para celulares com pouca memória. Requer **Android 8.0 (API 26)** ou superior.
 
----
-
-## ⚡ Destaques de Eficiência
-
-- **Memória RAM Ultrabaixa:** Consumo típico entre **6 MB e 10 MB de RAM** (PSS medido).
-- **Sem Jetpack Compose no Teclado:** Construído inteiramente com **Android Views / Canvas 2D nativo**, sem sobrecarga de árvores de composição ou alocações excessivas na coleta de lixo (GC).
-- **100% Offline (Zero Internet):** O arquivo `AndroidManifest.xml` **não declara** a permissão `android.permission.INTERNET`. Nenhuma conexão com a rede é realizada.
-- **Núcleo em Rust de Alta Performance:** Dicionário, sugestões por prefixo, ponderação de bigramas e autocorreção conservadora são executados via código nativo em Rust (`libkeyboard_core.so`) compilado com `cargo-ndk`.
-- **Dicionário Binário Compacto:** Formato binário indexado (`dict_pt_br.bin`) de ~8 KB a 300 KB em vez de carregar arquivos de texto pesados na memória.
-- **Economia de Bateria:** Sem serviços em segundo plano, sem wake locks e feedback tátil por vibração **desligado por padrão**.
+Versão atual: **1.9.2** (versionCode 12). Pacote: `com.aistudio.tecladoptbr.kxqpva`. Até a v1.9.1 o app se chamava "Teclado Leve PT-BR".
 
 ---
 
-## 📱 Recursos Funcionais
+## 📱 Recursos
 
-1. **Layout QWERTY em Português com 'Ç' Visível:**
-   - A tecla **ç** tem posição dedicada permanente na segunda linha (`a s d f g h j k l ç`).
-2. **Acentos por Pressão Longa:**
-   - Pressione e segure qualquer tecla com acentuação disponível para abrir a seleção rápida:
-     - `a` → á, à, â, ã, ä
-     - `e` → é, ê, è, ë
-     - `i` → í, ì, î, ï
-     - `o` → ó, ô, õ, ò, ö
-     - `u` → ú, ü, ù, û
-     - `c` → ç
-     - `n` → ñ
-3. **Barra de 3 Sugestões Contextuais:**
-   - Exibe três sugestões acima das teclas, ranqueadas pela frequência do vocabulário e pela palavra anterior (bigrama). A sugestão de maior probabilidade fica em destaque no centro.
-4. **Autocorreção Conservadora & Desfazer Instantâneo:**
-   - Corrige automaticamente erros próximos de digitação e palavras sem acento (ex.: `nao` → `não`, `voce` → `você`, `abracp` → `abraço`).
-   - Se a palavra digitada já for um termo válido da língua, nenhuma alteração é feita.
-   - **Desfazer automático:** Pressionar Backspace imediatamente após uma correção desfaz a alteração e restaura exatamente o texto original digitado.
-5. **Autocapitalização Inteligente:**
-   - Alterna para maiúscula no início do texto e após pontos finais (`.`, `?`, `!`) seguidos de espaço.
-6. **Backspace com Aceleração:**
-   - Pressionar e segurar a tecla Backspace repete a exclusão, acelerando progressivamente de 400ms até 30ms para apagar rapidamente trechos longos.
-7. **Tecla Enter Dinâmica:**
-   - Adapta-se ao contexto do campo de texto (`EditorInfo.imeOptions`): exibe e executa **Enviar**, **Buscar**, **Ir**, **Próximo**, **Concluir** ou Nova Linha.
+1. **Layout QWERTY em português** com a tecla **ç** na segunda linha.
+2. **Acentos por pressão longa:** `a` → á à â ã ä, `e` → é ê è ë, `i` → í ì î ï, `o` → ó ô õ ò ö, `u` → ú ü ù û, `c` → ç, `n` → ñ.
+3. **Barra com 3 sugestões**, ranqueadas pela frequência do vocabulário e pela palavra anterior (bigrama).
+4. **Autocorreção conservadora:** corrige erros próximos de digitação e palavras sem acento (ex.: `nao` → `não`). Nomes próprios e estrangeirismos listados em `stoplist_names.txt` nunca são alterados. **Backspace logo após uma correção desfaz a alteração.**
+5. **Autocapitalização** no início do texto e depois de `.`, `?` e `!`.
+6. **Backspace acelerado** ao segurar a tecla.
+7. **Enter dinâmico:** mostra Enviar, Buscar, Ir, Próximo, Concluir ou nova linha, conforme o campo.
+8. **Digitação por voz (opcional):** usa a API Whisper da Groq. Só funciona com uma chave da Groq configurada no app.
+9. **Atualização dentro do app:** baixa a nova versão com barra de progresso, confere se o arquivo é do Termclado, se é mais novo e se tem a mesma assinatura, e então abre a instalação do Android.
+
+Temas, painel de emoji e compartilhar são descritos em `docs/RELEASE_NOTES_v1.8.md`.
 
 ---
 
-## 🛠️ Arquitetura do Projeto
+## 🔒 Privacidade e permissões
+
+O teclado não grava histórico e não envia texto digitado para fora do aparelho. Dicionário e autocorreção funcionam sem internet.
+
+| Permissão | Para quê |
+|---|---|
+| `INTERNET` | Verificar atualizações no GitHub Releases e transcrever voz pela Groq (a voz só é usada com chave configurada) |
+| `RECORD_AUDIO` | Gravar o áudio da digitação por voz |
+| `VIBRATE` | Feedback tátil opcional (desligado por padrão) |
+| `REQUEST_INSTALL_PACKAGES` | Abrir a instalação de uma atualização baixada |
+| `POST_NOTIFICATIONS` | Avisar que há nova versão (Android 13 ou superior) |
+
+Quando você usa a digitação por voz, o áudio gravado é enviado à Groq para transcrição. Sem a chave, nenhum áudio sai do aparelho.
+
+---
+
+## ⚙️ Núcleo nativo (Rust)
+
+- `rust-core/` é o workspace Rust. O CI compila `libkeyboard_core.so` para `arm64-v8a`, `armeabi-v7a` e `x86_64` a cada tag de release, e o APK usa essas bibliotecas.
+- O Rust faz o carregamento do dicionário, as sugestões por prefixo, o ranqueamento por bigrama e a verificação de palavra (`isWord`).
+- A **autocorreção ainda roda no motor Kotlin** (`CompactTrieEngine`), mesmo com a biblioteca nativa carregada.
+- Se a biblioteca nativa não carregar, o app usa só o motor Kotlin.
+
+---
+
+## 📚 Dicionário e licenças
+
+- **Dicionário:** `app/src/main/assets/dict_pt_br.bin`, gerado por `scripts/build_dictionary.py`.
+- **Fontes:** Projeto VERO (LGPL v3.0 / MPL 1.1) e FrequencyWords (OpenSubtitles 2018, CC BY-SA 4.0). Detalhes em `NOTICE`.
+- **Dicionário binário:** distribuído sob **CC BY-SA 4.0**, conforme `NOTICE`.
+- **Código-fonte:** **licença ainda não definida.** O repositório não tem arquivo `LICENSE`. Versões anteriores deste README citavam MIT ou Apache 2.0, mas isso não estava refletido no repositório.
+
+---
+
+## 🛠️ Estrutura
 
 ```
 .
-├── app/
-│   ├── build.gradle.kts          # Configuração Gradle (minSdk 26, arm64-v8a, armeabi-v7a)
-│   └── src/main/
-│       ├── AndroidManifest.xml   # Declaração do IME (sem permissão de internet)
-│       ├── assets/
-│       │   └── dict_pt_br.bin    # Dicionário binário compacto (PTKB)
-│       ├── java/com/example/
-│       │   ├── MainActivity.kt   # Tela de ativação, teste e preferências
-│       │   └── keyboard/
-│       │       ├── LatinIMEKeyboardService.kt # InputMethodService
-│       │       ├── KeyboardView.kt            # Renderização das teclas via Canvas
-│       │       ├── CandidateView.kt           # Barra de 3 sugestões
-│       │       ├── NativeEngine.kt            # Ponte JNI com libkeyboard_core.so
-│       │       ├── CompactTrieEngine.kt       # Fallback puro em Kotlin
-│       │       └── KeyboardPreferences.kt     # Preferências (Vibração, etc.)
-│       ├── jniLibs/
-│       │   ├── arm64-v8a/libkeyboard_core.so  # Biblioteca nativa 64-bit
-│       │   ├── armeabi-v7a/libkeyboard_core.so# Biblioteca nativa 32-bit
-│       │   └── x86_64/libkeyboard_core.so     # Biblioteca para emulador
-│       └── res/xml/method.xml    # Configuração de método de entrada do Android
-├── rust-core/                    # Núcleo nativo em Rust
-│   ├── Cargo.toml
-│   └── src/
-│       ├── lib.rs                # Testes unitários do núcleo
-│       ├── dictionary.rs         # Parser binário e normalização
-│       ├── suggest.rs            # Ranqueamento, bigramas e autocorreção
-│       └── jni.rs                # Exportação C ABI / JNI
-└── scripts/
-    └── build_dictionary.py       # Script de geração do dict_pt_br.bin
+├── app/src/main/java/com/example/
+│   ├── MainActivity.kt            # Tela de configurações, teste e preferências
+│   ├── UpdateChecker.kt           # Consulta a última release no GitHub
+│   ├── UpdateNotifier.kt          # Aviso de nova versão (no máximo a cada 12 h)
+│   ├── ApkDownloader.kt           # Baixa o APK com barra de progresso
+│   ├── InstallResultReceiver.kt   # Recebe o resultado da instalação
+│   └── keyboard/
+│       ├── LatinIMEKeyboardService.kt  # InputMethodService (o teclado)
+│       ├── KeyboardView.kt             # Teclas desenhadas em Canvas
+│       ├── CandidateView.kt            # Barra de sugestões
+│       ├── EmojiPanelView.kt           # Painel de emoji
+│       ├── MorePanelView.kt            # Menu da toolbar
+│       ├── NativeEngine.kt             # Ponte JNI com libkeyboard_core.so
+│       ├── CompactTrieEngine.kt        # Motor em Kotlin (autocorreção e fallback)
+│       ├── GroqSpeechClient.kt         # Transcrição por voz (Groq Whisper)
+│       ├── VoiceInputHelper.kt         # Gravação de áudio
+│       ├── KeyboardPreferences.kt      # Preferências
+│       └── KeyboardTheme.kt            # Temas
+├── app/src/main/jniLibs/          # libkeyboard_core.so por arquitetura
+├── rust-core/src/                 # lib.rs, dictionary.rs, suggest.rs, jni.rs
+├── scripts/build_dictionary.py    # Gera o dict_pt_br.bin
+├── docs/                          # Notas de cada versão
+├── APK/                           # APKs de versões anteriores
+└── stoplist_names.txt             # Palavras que nunca sofrem autocorreção
 ```
 
 ---
 
-## 📚 Fonte e Licença do Dicionário
+## 🚀 Como compilar
 
-- **Fonte:** Vocabulário e frequências do Português Brasileiro compilados a partir de corpora públicos de domínio público e do **Projeto Vero / LibreOffice pt-BR** (Raimundo Santos Moura).
-- **Licença:** **Livre (CC0 1.0 Universal / LGPLv3 / MPL 1.1)**. Pode ser distribuído e modificado livremente sem restrições proprietárias.
-- Para regerar o arquivo binário a partir de novas listas de palavras:
-  ```bash
-  python3 scripts/build_dictionary.py app/src/main/assets/dict_pt_br.bin
-  ```
+Os comandos abaixo são os mesmos que o CI usa, a partir da raiz do repositório:
 
----
-
-## 🚀 Como Compilar o Projeto
-
-### 1. Compilar os Testes e o Núcleo Rust
 ```bash
-# Rodar testes unitários em Rust
+# 1. Testes e biblioteca nativa
 cargo test --manifest-path rust-core/Cargo.toml
+cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o app/src/main/jniLibs build -p keyboard-core --release
 
-# Compilar para Android arm64-v8a e armeabi-v7a com cargo-ndk
-cargo ndk -t arm64-v8a -t armeabi-v7a -o app/src/main/jniLibs build -p keyboard-core --release
-```
-
-### 2. Compilar o APK com Gradle
-```bash
-./gradlew assembleRelease
-# ou para versão de desenvolvimento:
+# 2. APK de depuração
 ./gradlew assembleDebug
 ```
 
----
-
-## 📥 Como Instalar e Ativar no Android (Android 8.0+)
-
-1. **Instalação:**
-   - Transfira o arquivo `APK/teclado-pt-br-v1.2.apk` para o seu dispositivo via cabo USB, cartão SD ou download local.
-   - Toque no arquivo `.apk` e confirme a instalação (habilite "Instalar fontes desconhecidas" caso solicitado).
-2. **Ativação:**
-   - Abra o aplicativo **Teclado PT-BR** pelo ícone no lançador.
-   - Toque em **1. Ativar nas Configurações** → marque a chave do **Teclado Leve PT-BR**.
-   - Toque em **2. Escolher como Ativo** → selecione **Teclado Leve PT-BR** na lista.
-   - Use o campo **3. Testar Digitação** para verificar as teclas, acentos e sugestões.
+O APK de release precisa das variáveis `KEYSTORE_PATH`, `STORE_PASSWORD` e `KEY_PASSWORD`. A chave de assinatura não está no repositório.
 
 ---
 
-## 📊 Medição de Memória RAM
+## 📥 Instalação
 
-Para verificar o consumo real de memória do processo do teclado usando o Android Debug Bridge (`adb`):
+1. Baixe o APK da última release no GitHub (ou pegue o arquivo em `APK/`).
+2. Toque no arquivo e confirme a instalação. Se o Android pedir, permita instalar apps desconhecidos.
+3. Abra o **Termclado** e siga os passos da tela inicial: ativar o teclado nas configurações do Android e escolhê-lo como teclado atual.
+
+Para atualizar, use o botão de atualização dentro do app. Atualizações mantêm as configurações quando a assinatura é a mesma.
+
+---
+
+## 📊 Medição de memória
+
+Com o teclado aberto, meça o consumo do processo pelo `adb`:
 
 ```bash
-# 1. Descubra o pacote do aplicativo
 adb shell dumpsys meminfo com.aistudio.tecladoptbr.kxqpva
 ```
 
-### Exemplo de Saída Esperada:
-```
-** MEMINFO in pid 12345 [com.aistudio.tecladoptbr.kxqpva] **
-                   Pss      Pss   Shared  Private  Private
-                 Total    Clean    Clean    Clean    Dirty
-                ------   ------   ------   ------   ------
-    Native Heap   2150        0     1200     2100        0
-    Dalvik Heap   3200        0      800     3100        0
-   Dalvik Other    840        0      200      800        0
-          Stack    240        0        0      240        0
-         Ashmem     12        0        0       12        0
-      TOTAL PSS:  7.8 MB
-```
-
-- **Consumo Total PSS:** ~**7.8 MB a 9.2 MB**.
-- **Consumo em repouso:** **0% de uso de CPU**.
+Procure a linha `TOTAL PSS`. Os valores variam conforme o aparelho e a versão do Android.
 
 ---
 
-## 🔒 Permissões e Segurança
+## 🧭 Pendências conhecidas
 
-| Permissão | Status | Finalidade |
-|---|---|---|
-| `INTERNET` | **NÃO PRESENTE** | O aplicativo não possui código de rede nem acesso à internet. |
-| `VIBRATE` | Opcional | Usada apenas para feedback tátil se o usuário ativar nas configurações. |
-| Gravação de áudio / Câmera | **NÃO PRESENTE** | Nenhuma coleta de dados sensíveis. |
-
----
-
-## 📄 Licença do Código-Fonte
-
-Este projeto está licenciado sob a licença **MIT** ou **Apache 2.0**.
+- **Autocorreção nativa:** a função `nativeGetAutoCorrection` existe em Rust, mas não é usada. Trocar o motor exige testes no aparelho, porque o resultado precisa ser igual ao do motor Kotlin.
+- **Dicionário carregado duas vezes** (Kotlin e Rust). Só dá para remover depois da troca acima.
+- **Dicionário maior:** o formato atual guarda uma `String` por palavra. Com um vocabulário grande, o ideal é um blob com offsets, lido por fatias.
+- **Licença do código:** a definir pelo autor.
