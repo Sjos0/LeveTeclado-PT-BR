@@ -483,12 +483,6 @@ class KeyboardView @JvmOverloads constructor(
 
             canvas.drawRoundRect(key.rect, cornerRadius, cornerRadius, paint)
 
-            // Destaque visual na tecla de emoji
-            if (key.isEmoji) {
-                tempRect.set(key.rect.left + 3f, key.rect.top + 3f, key.rect.right - 3f, key.rect.bottom - 3f)
-                canvas.drawRoundRect(tempRect, cornerRadius - 2f, cornerRadius - 2f, emojiBorderPaint)
-            }
-
             // Renderização do conteúdo de cada tecla
             when (key.code) {
                 CODE_SHIFT -> drawShiftIcon(canvas, key.rect)
@@ -702,18 +696,15 @@ class KeyboardView @JvmOverloads constructor(
                 if (key != null) {
                     val now = System.currentTimeMillis()
 
-                    // R1: Regras estritas de proteção contra toque duplo e debounce
-                    val isExemptKey = key.code == CODE_BACKSPACE || key.code == CODE_SHIFT
-                    if (!isExemptKey) {
-                        // 1. Rejeição de ponteiro duplicado sobre a mesma tecla já pressionada
-                        if (activeByKey.containsKey(key)) {
-                            return true
-                        }
-                        // 2. Debounce na mesma tecla se o intervalo for menor que 60 ms
-                        val lastAccepted = lastAcceptedMs[key] ?: 0L
-                        if (now - lastAccepted < 60L) {
-                            return true
-                        }
+                    // Proteção contra toque duplo do hardware, para TODAS as teclas (inclusive Backspace e Shift)
+                    // 1. Rejeição de ponteiro duplicado sobre a mesma tecla já pressionada
+                    if (activeByKey.containsKey(key)) {
+                        return true
+                    }
+                    // 2. Debounce na mesma tecla se o intervalo for menor que 60 ms
+                    val lastAccepted = lastAcceptedMs[key] ?: 0L
+                    if (now - lastAccepted < 60L) {
+                        return true
                     }
 
                     // Registra aceitação da tecla

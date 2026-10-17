@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">Teclado PT-BR</string>
-    <string name="ime_service_name">Teclado Leve PT-BR</string>
+    <string name="app_name">Termclado</string>
+    <string name="ime_service_name">Termclado</string>
     <string name="ime_settings_title">Configurações do Teclado</string>
     <string name="step_enable_title">1. Ativar nos Métodos de Entrada</string>
-    <string name="step_enable_desc">Abra as configurações do sistema para ativar o Teclado PT-BR.</string>
+    <string name="step_enable_desc">Abra as configurações do sistema para ativar o Termclado.</string>
     <string name="step_enable_button">Ativar nas Configurações</string>
     <string name="step_select_title">2. Escolher como Teclado Ativo</string>
-    <string name="step_select_desc">Selecione o Teclado PT-BR como seu método de entrada padrão.</string>
+    <string name="step_select_desc">Selecione o Termclado como seu método de entrada padrão.</string>
     <string name="step_select_button">Selecionar Teclado</string>
     <string name="step_test_title">3. Teste de Digitação</string>
     <string name="step_test_hint">Toque aqui para testar o teclado…</string>
