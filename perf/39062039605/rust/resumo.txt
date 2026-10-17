@@ -1,0 +1,77 @@
+Motor do build: rust
+Android: 14 (SDK 34)
+Modelo emulado: sdk_gphone64_x86_64
+APK: app/build/outputs/apk/debug/app-debug.apk (11471146 bytes no runner)
+Instalação:
+  Performing Streamed Install
+Success
+Lista de IMEs instalados (diagnóstico):
+  com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+  com.google.android.tts/com.google.android.apps.speech.tts.googletts.settings.asr.voiceime.VoiceInputMethodService
+Ativando o Termclado como teclado (com novas tentativas):
+  enable após 3 tentativa(s): ok
+  set: Input method com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService selected for user #0 
+Forçando o teclado virtual a aparecer (sem teclado físico):
+Abrindo o campo de teste:
+  Starting: Intent { cmp=com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity } Status: ok LaunchState: COLD Activity: com.aistudio.tecladoptbr.kxqpva/com.example.DevTypingActivity TotalTime: 2959 WaitTime: 2965 Complete 
+Serviço do IME em execução:
+  * ServiceRecord{b4c8ffc u0 com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+  intent={act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+  infoAllowStartForeground=[callingPackage: android; callingUid: 1000; uidState: PER ; uidBFSL: [BFSL]; intent: Intent { act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService }; code:PROC_STATE_PERSISTENT; tempAllowListReason:<6bd19dd android.intent.action.BOOT_COMPLETED/u0,reasonCode:BOOT_COMPLETED,duration:20000,callingUid:1000>; targetSdkVersion:36; callerTargetSdkVersion:34; startForegroundCount:0; bindFromPackage:null: isBindService:true]
+  intent={act=android.view.InputMethod cmp=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService}
+RAM (teclado-visivel): PSS total = 67049 KB
+  Native Heap    25620    25608        0       27    26976    32652    27583     1132
+  TOTAL    67049    61512      396      145   167508    39838    31208     4693
+  Java Heap:     9136                          30228
+  Native Heap:    25608                          26976
+  Graphics:        0                              0
+  TOTAL PSS:    67049            TOTAL RSS:   167508       TOTAL SWAP PSS:      145
+Logs do motor e erros do processo (logcat):
+  10-17 19:26:03.498   841   872 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#6)android.os.BinderProxy@4958220@0
+  10-17 19:26:04.758  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:04.758  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:04.910  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.011  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.012  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.012  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.012  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.013  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.013  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.013  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.013  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.013  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.014  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.014  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.014  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.014  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.015  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.016  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:08.638  1548  1628 I LatinImeEntryActivation: LatinImeActivationContentObserver.activeLanguagesHaveChanged():68 Active entries changed: [] -> {en-US}
+  10-17 19:26:10.075   522  2384 E InputMethodManagerService: "ime enable com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService" for user #0 failed due to its unrecognized IME ID.
+  10-17 19:26:11.973   522  2288 W OverlayManager: service 'idmap' died
+  10-17 19:26:14.141   522   754 E InputMethodManagerService: "ime enable com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService" for user #0 failed due to its unrecognized IME ID.
+  10-17 19:26:14.568  2607  2788 I GnpSdk  : [GrowthKitBootCompletedListener] GrowthKit disabled by flag. Aborting GrowthKitBootCompletedBroadcastReceiver
+  10-17 19:26:19.097   841   872 V WindowManagerShell: Transition animation finished (aborted=false), notifying core (#7)android.os.BinderProxy@9fc097f@0
+  10-17 19:26:20.323   395   395 W WVCdm   : [oemcrypto_adapter_dynamic.cpp(864):Initialize] Could not load oemcrypto from path liboemcrypto.so.  dlopen failed: library "liboemcrypto.so" not found
+  10-17 19:26:21.653  1548  1548 I KeyboardModeManager: KeyboardModeManager.setInputView():356 setInputView() : entry=hwn{languageTag=en-US, variant=qwerty, hasLocalizedResources=true, conditionCacheKey=_device=phone_devic
+  10-17 19:26:21.708  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:21.708  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:21.708  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:21.709  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:21.709  1805  2592 W SearchServiceCore: Abort, client detached.
+  10-17 19:26:22.080  3909  3909 I NativeEngine: libkeyboard_core.so nativa em Rust carregada com sucesso!
+  10-17 19:26:22.084  3909  3909 I NativeEngine: Dicionário binário inicializado no núcleo Rust (modo rust).
+  10-17 19:26:26.892   522  2423 W OverlayManager: service 'idmap' died
+Armazenamento:
+  caminho do APK instalado: /data/app/~~hQ_sD4QId5t3_ehNX6Dh7Q==/com.aistudio.tecladoptbr.kxqpva-NP6IQdY1plFnf0cEB54w3g==/base.apk
+  tamanho do APK instalado: 11471146 bytes
+  dados privados do app: 56 KB
+Estado do teclado:
+  mCurMethodId=com.aistudio.tecladoptbr.kxqpva/com.example.keyboard.LatinIMEKeyboardService
+  mInputShown=true
+Concluído. Resultados em perf-results-rust/
