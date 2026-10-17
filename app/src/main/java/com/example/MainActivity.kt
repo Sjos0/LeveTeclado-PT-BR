@@ -395,7 +395,7 @@ class MainActivity : Activity() {
     private fun showPrivacyDialog() {
         AlertDialog.Builder(this)
             .setTitle("Privacidade e Segurança")
-            .setMessage("100% Seguro e Offline\n\n• O serviço do teclado nunca acessa a internet nem grava histórico.\n• Nenhum texto digitado é registrado ou compartilhado.\n• A única funcionalidade que usa rede é a busca manual ou automática por atualizações do próprio app no GitHub Releases.")
+            .setMessage("Privacidade\n\n• O teclado não grava histórico. Nenhum texto digitado é registrado ou compartilhado.\n• A digitação por voz é opcional: ela só funciona se você configurar sua chave da Groq, e nesse caso o áudio gravado é enviado à Groq para transcrição.\n• A verificação de atualizações acessa o GitHub Releases, no máximo a cada 12 horas enquanto você usa o teclado, ou quando você toca em verificar.")
             .setPositiveButton("OK", null)
             .show()
     }

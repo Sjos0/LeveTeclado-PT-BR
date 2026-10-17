@@ -4,7 +4,7 @@
 
     <!-- Permissão de vibração para feedback tátil opcional nas teclas. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Permissão de internet utilizada estritamente pelo verificador de atualizações do GitHub. -->
+    <!-- Internet: verificação de atualizações no GitHub Releases e transcrição de voz pela API da Groq (esta só é usada se o usuário configurar a chave). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Microfone para fala → texto (Groq Whisper). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

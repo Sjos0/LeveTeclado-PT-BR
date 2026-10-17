@@ -8,8 +8,9 @@ use crate::suggest::{get_auto_correction, get_suggestions};
 
 static GLOBAL_DICT: Mutex<Option<Dictionary>> = Mutex::new(None);
 
-/// Trava o dicionário global. Se alguma thread tiver entrado em pânico com o lock
-/// (mutex envenenado), usa o conteúdo mesmo assim, em vez de derrubar o processo do teclado.
+/// Trava o dicionário global. Tratamento defensivo de mutex envenenado: com
+/// `panic = "abort"` (rust-core/Cargo.toml) um pânico já encerra o processo e o lock
+/// nunca fica envenenado, então este caminho só faria diferença se o perfil mudasse para `unwind`.
 fn lock_dict() -> std::sync::MutexGuard<'static, Option<Dictionary>> {
     GLOBAL_DICT.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
